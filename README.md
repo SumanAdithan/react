@@ -1,50 +1,172 @@
-# React + TypeScript + Vite
+# React + Vite + TypeScript + Tailwind CSS Starter
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This repository provides a custom starter template for React applications using **Vite**, **TypeScript**, and **Tailwind CSS** with path alias support. It includes the necessary configuration for a seamless development experience and follows best practices for TypeScript, Vite, and Tailwind integration.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## Expanding the ESLint configuration
+-   **React** with **SWC** for fast JSX transformation.
+-   **Vite** as the build tool for fast development and optimized production builds.
+-   **TypeScript** with strict configurations for better type safety.
+-   **Tailwind CSS** for utility-first styling.
+-   Path aliases set up for cleaner imports.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+---
 
-- Configure the top-level `parserOptions` property like this:
+## ⚙️ Configuration Highlights
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
+## 📦 Additional Dependencies
+
+These dependencies have been added to resolve TypeScript-related errors and improve the development experience:
+
+-   **ts-node** - To execute TypeScript code directly without compiling it first.
+-   **@types/node** - Provides TypeScript definitions for Node.js.
+-   **vite-plugin-tsconfig-paths** - Helps resolve path aliases defined in the **tsconfig.json** file during development.
+
+You can install them by running:
+
+```
+yarn add ts-node @types/node vite-plugin-tsconfig-paths -D
+
+```
+
+### 1. Vite Configuration
+
+The **`vite.config.ts`** file is set up with vite-plugin-tsconfig-paths to resolve TypeScript path aliases:
+
+```
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import { resolve } from 'path';
+import tsconfigPaths from 'vite-plugin-tsconfig-paths';
+
+// https://vite.dev/config/
+export default defineConfig({
+    resolve: {
+        alias: {
+            '@': resolve(__dirname, 'src'),
+            // '@components': resolve(__dirname, 'src/components'),
+        },
     },
-  },
-})
+    plugins: [react(), tsconfigPaths()],
+});
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+### 2. Path Aliases
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+Path aliases are configured in **`tsconfig.json`** for cleaner imports:
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
 ```
+{
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "@/": ["./"]
+      // "@components": ["components"],
+    }
+  }
+}
+
+```
+
+### 3. TypeScript Configuration
+
+The TypeScript configuration is split into multiple files for flexibility:
+
+-   **tsconfig.json** - Base configuration for TypeScript with shared settings across the app.
+-   **tsconfig.app.json** - Specific settings for the application code.
+-   **tsconfig.node.json** - Settings for server-side or Node.js-specific code.
+
+**`Base`** tsconfig.json
+
+```
+{
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "@/": ["./"]
+    }
+  }
+}
+
+```
+
+**`Application`** tsconfig.app.json
+
+```
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}
+
+```
+
+**`Node`** tsconfig.node.json
+
+```
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+
+```
+
+## 📦 Technologies Used
+
+-   **React** with **SWC** for fast JSX compilation
+-   **Vite** for fast bundling and development
+-   **TypeScript** for type safety
+-   **Tailwind** CSS for utility-first styling
+-   **ESLint** for code linting and quality assurance
+-   **PostCSS** for transforming Tailwind and other CSS plugins
+
+## 📝 License
+
+This project is licensed under the MIT License. Feel free to use it as a reference or starting point for your projects.
+
+## 🙌 Contributions
+
+Contributions, issues, and feature requests are welcome! Feel free to open an issue or submit a pull request.
+
+## 📧 Contact
+
+For any questions, feel free to reach out at sumanadithan34@gmail.com.
