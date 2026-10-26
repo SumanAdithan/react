@@ -1,0 +1,106 @@
+---
+title: Static vs Server Deployment
+description: Which React apps can be deployed as static files, which need a running server, and how to choose.
+---
+
+Every React app is deployed in one of two ways:
+
+| | Static deployment | Server (dynamic) deployment |
+| --- | --- | --- |
+| What you upload | A folder of files: HTML, JS, CSS, images | An app that **runs** (Node.js process, serverless functions or a container) |
+| HTML is generated | Once, at **build time** (or in the browser) | On **each request** (or cached per request) |
+| Hosting | Any static host or CDN: GitHub Pages, Netlify, Cloudflare Pages, S3 | Vercel, Netlify Functions, Render, Railway, Fly.io, a VPS, Docker or Kubernetes |
+| Cost | Usually free | Free tiers exist; you pay for compute |
+| Scaling | Automatic (it's just files on a CDN) | You or the platform scale servers or functions |
+| Can do | UI, client-side data fetching from external APIs | Everything static can, plus SSR, auth cookies, Server Components, Server Functions, API routes, database access |
+
+## What does your React setup produce?
+
+| Setup | Build output | Deployment |
+| --- | --- | --- |
+| **Vite SPA** (`npm create vite`) | `dist/` static files | ✅ Static |
+| **Create React App** (legacy) | `build/` static files | ✅ Static |
+| **Next.js** with `output: 'export'` | `out/` static files | ✅ Static (no SSR, API routes, middleware or image optimisation) |
+| **Next.js** (default) | `.next/` + a Node server | 🖥️ Server |
+| **React Router framework mode** with `ssr: false` | `build/client/` | ✅ Static (SPA mode) |
+| **React Router framework mode** (SSR) | `build/server` + `build/client` | 🖥️ Server |
+| **Astro / Gatsby with React** | Static by default | ✅ Static (SSR adapters optional) |
+| **Vite SPA + your own Express/Nest API** | `dist/` + a Node API | ✅ Static frontend + 🖥️ server API, deployed separately |
+
+<Callout title="This docs site">
+  This site is Next.js built with `output: 'export'`, so it's deployed **statically to GitHub Pages**. Search runs in the browser from a prebuilt index. See [GitHub Pages](/docs/deployment/github-pages#example-this-docs-site-nextjs-static-export).
+</Callout>
+
+## How each one serves a request
+
+<Tabs items={['Static', 'Server-rendered']}>
+<Tab value="Static">
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant B as Browser
+    participant C as CDN / static host
+    participant A as External API
+    B->>C: GET /products
+    C-->>B: index.html + JS - the same files for every user
+    B->>B: React renders the page
+    B->>A: fetch /api/products
+    A-->>B: JSON
+    B->>B: Re-render with data
+"
+/>
+
+</Tab>
+<Tab value="Server-rendered">
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant B as Browser
+    participant S as Next.js server
+    participant D as Database
+    B->>S: GET /products
+    S->>D: query products
+    D-->>S: rows
+    S-->>B: HTML already containing the products
+    B->>B: Hydrate - attach event handlers
+"
+/>
+
+</Tab>
+</Tabs>
+
+## Rendering strategies and where they run
+
+| Strategy | When HTML is made | Needs a server? | Good for |
+| --- | --- | --- | --- |
+| **CSR** (client-side rendering) | In the browser | ❌ | Dashboards and apps behind a login |
+| **SSG** (static site generation) | At build time | ❌ | Docs, blogs, marketing pages |
+| **SSR** (server-side rendering) | Per request | ✅ | Personalised or always-fresh pages, SEO with live data |
+| **ISR** (incremental static regeneration) | Build time, refreshed in the background | ✅ | Large catalogues that change occasionally |
+| **RSC + Server Functions** | Per request or cached | ✅ | Full-stack React (Next.js App Router) |
+
+## Choosing
+
+<Mermaid
+  chart="
+flowchart TD
+    A{Do pages need data that is private or different per user at request time?} -- No --> B{Is the content known at build time?}
+    B -- Yes --> S1[Static: SSG or Next.js export]
+    B -- No, fetched in the browser --> S2[Static: SPA calling an API]
+    A -- Yes --> C{Do you want server rendering or Server Components?}
+    C -- No --> S3[Static SPA + separate API server]
+    C -- Yes --> D[Server deployment: Next.js or React Router SSR]
+    D --> E{Managed or self-hosted?}
+    E -- Managed --> V[Vercel, Netlify, Render]
+    E -- Self-hosted --> K[Node + PM2 + Nginx, or Docker]
+"
+/>
+
+<Cards>
+  <Card title="Static Hosting" href="/docs/deployment/hosting">Vercel, Netlify, Cloudflare and Firebase for SPAs</Card>
+  <Card title="GitHub Pages" href="/docs/deployment/github-pages">Vite SPA and Next.js static export, with a full workflow</Card>
+  <Card title="Server Deployment" href="/docs/deployment/server-deployment">Next.js and React Router SSR, Node servers, PM2 and Nginx</Card>
+  <Card title="Docker" href="/docs/deployment/docker">Containers for static SPAs and Next.js servers</Card>
+</Cards>

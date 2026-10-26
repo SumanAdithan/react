@@ -1,0 +1,273 @@
+---
+title: GitHub Pages
+description: Deploy a Vite SPA or a statically exported Next.js app to GitHub Pages with GitHub Actions.
+---
+
+**GitHub Pages** hosts static files for free, straight from a repository. It serves:
+
+| Repository | URL | Base path |
+| --- | --- | --- |
+| `username.github.io` | `https://username.github.io/` | `/` |
+| Any other repo, e.g. `react` | `https://username.github.io/react/` | **`/react/`** |
+| Either, with a custom domain | `https://docs.example.com/` | `/` |
+
+Two things make Pages different from Netlify or Vercel:
+
+1. **Project sites live in a sub-folder** (`/react/`), so the app must know its **base path**, or every asset URL points to the wrong place.
+2. **No rewrite rules and no server**, so SPA routes need a workaround, and anything that needs Node.js (SSR, API routes) won't run.
+
+<Mermaid
+  chart="
+flowchart LR
+    A[git push to master] --> B[GitHub Actions: install and build]
+    B --> C[upload-pages-artifact: dist or out]
+    C --> D[deploy-pages]
+    D --> E[username.github.io/repo]
+"
+/>
+
+## One-time repository setup
+
+<Steps>
+<Step>
+Push the project to GitHub.
+</Step>
+<Step>
+Open **Settings → Pages** and set **Source** to **GitHub Actions**.
+</Step>
+<Step>
+Add a workflow file (below) and push. The **Actions** tab shows the run, and the deployed URL appears on the `deploy` job and under Settings → Pages.
+</Step>
+</Steps>
+
+## Vite SPA
+
+### 1. Set the base path
+
+```js title="vite.config.js"
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  base: '/my-repo/', // must match the repository name; '/' for username.github.io
+});
+```
+
+`import.meta.env.BASE_URL` now equals `'/my-repo/'`. Use it for files in `public/`:
+
+```jsx
+<img src={`${import.meta.env.BASE_URL}logo.png`} alt="" />
+```
+
+### 2. Make routing work
+
+Refreshing `/my-repo/about` asks Pages for a file that doesn't exist, so you get a 404. Pick one fix:
+
+<Tabs items={['basename + 404.html (clean URLs)', 'HashRouter (simplest)']}>
+<Tab value="basename + 404.html (clean URLs)">
+
+Tell React Router about the base path:
+
+```jsx title="main.jsx"
+<BrowserRouter basename={import.meta.env.BASE_URL}>
+  <App />
+</BrowserRouter>
+```
+
+Then copy `index.html` to `404.html` after building. Pages serves `404.html` for unknown paths, so it loads your app and React Router renders the right page:
+
+```json title="package.json"
+{
+  "scripts": {
+    "build": "vite build && cp dist/index.html dist/404.html"
+  }
+}
+```
+
+The page works, but the HTTP status is still 404, so search engines may not index deep links. That's fine for apps, less ideal for content sites.
+
+</Tab>
+<Tab value="HashRouter (simplest)">
+
+```jsx title="main.jsx"
+import { HashRouter } from 'react-router-dom';
+
+<HashRouter>
+  <App />
+</HashRouter>;
+```
+
+URLs become `/my-repo/#/about`. The server only ever sees `/my-repo/`, so refreshing always works. The downsides are uglier URLs and weaker SEO.
+
+</Tab>
+</Tabs>
+
+### 3. Workflow
+
+```yaml title=".github/workflows/deploy.yml"
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }} # Settings → Secrets and variables → Actions → Variables
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+```
+
+<Accordions>
+<Accordion title="Alternative: the gh-pages package (no workflow)">
+
+```bash
+npm i -D gh-pages
+```
+
+```json title="package.json"
+{
+  "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  }
+}
+```
+
+`npm run deploy` builds and pushes `dist/` to a `gh-pages` branch. In Settings → Pages, choose **Deploy from a branch → gh-pages**. It's simpler, but deploys from your machine rather than from CI.
+
+</Accordion>
+</Accordions>
+
+## Example: this docs site (Next.js static export)
+
+This site is a **Next.js + Fumadocs** app deployed to `https://sumanadithan.github.io/react/`. A default Next.js app needs a server, so it's switched to **static export**.
+
+### 1. Next.js config
+
+```js title="next.config.mjs"
+const config = {
+  output: 'export',                                   // write static HTML to out/
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH ?? '',  // "/react" in CI, "" locally
+  trailingSlash: true,                                // /docs/hooks/ → docs/hooks/index.html
+  images: { unoptimized: true },                      // no image optimisation server
+};
+```
+
+Next.js adds `basePath` automatically to `<Link>`, `next/image` and its own JS and CSS. **Anything you write as a plain string doesn't get it**: `fetch('/api/...')`, `<img src="/...">`, Open Graph URLs. Prefix those yourself:
+
+```ts title="src/lib/shared.ts"
+export const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
+<img src={`${basePath}/images/ai/hero.png`} />;
+```
+
+### 2. Remove server-only features
+
+| Feature | Static export | What this site does |
+| --- | --- | --- |
+| Middleware / `proxy.ts` | ❌ Not supported | Removed (it rewrote `.md` URLs; the Markdown files are still exported) |
+| Route handlers (`route.ts`) | ✅ Only `GET` with static output | Search index, `llms.txt`, OG images are pre-rendered with `revalidate = false` and `generateStaticParams` |
+| Server-side search API | ❌ | `staticGET` exports the index; the browser searches it with `useStaticSearch` |
+| `next/image` optimisation | ❌ | `images.unoptimized: true` |
+| SSR, cookies, `headers()`, Server Functions | ❌ | Not used |
+
+```ts title="src/app/api/search/route.ts"
+export const revalidate = false;
+export const { staticGET: GET } = createFromSource(source);
+```
+
+```tsx title="src/components/search.tsx"
+const search = useStaticSearch({ from: `${basePath}/api/search` });
+```
+
+### 3. Workflow
+
+`actions/configure-pages` reports the correct base path and origin, so the repository name isn't hard-coded:
+
+```yaml title=".github/workflows/deploy.yml (build job)"
+      - uses: pnpm/action-setup@v4            # version from "packageManager" in package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - id: pages
+        uses: actions/configure-pages@v5
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}  # "/react"
+          NEXT_PUBLIC_SITE_URL: ${{ steps.pages.outputs.origin }}      # "https://sumanadithan.github.io"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./out
+```
+
+### 4. Test the export locally
+
+```bash
+pnpm build      # writes out/ (no base path locally)
+pnpm start      # serves out/ with `serve` on http://localhost:3000
+```
+
+To test with the real base path, build with `NEXT_PUBLIC_BASE_PATH=/react` and serve the parent folder so the site is reachable at `/react/`.
+
+## Custom domain
+
+<Steps>
+<Step>
+In **Settings → Pages → Custom domain**, enter `docs.example.com` and save.
+</Step>
+<Step>
+At your DNS provider, add a `CNAME` record from `docs` to `username.github.io` (for an apex domain, use the four GitHub `A` records listed in the GitHub docs).
+</Step>
+<Step>
+Tick **Enforce HTTPS** once the certificate is issued.
+</Step>
+<Step>
+Change the base path to `/` (Vite `base: '/'`; for Next.js, `configure-pages` reports an empty base path automatically).
+</Step>
+</Steps>
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Blank page; JS and CSS 404 in the Network tab | Missing base path | Set `base` (Vite) or `basePath` (Next.js) to `/repo-name` |
+| Refreshing a route gives 404 | No SPA fallback | `basename` + `404.html`, or `HashRouter` |
+| Images in `public/` missing | Hard-coded `/image.png` | Prefix with `import.meta.env.BASE_URL` or `basePath` |
+| Old version still showing | Browser or CDN cache | Hard refresh. Pages' CDN updates within minutes |
+| Workflow fails at deploy | Pages source not set to Actions | Settings → Pages → Source: GitHub Actions |
+| `_next` folder 404 (branch deploys only) | Jekyll ignores `_`-prefixed folders | Add an empty `.nojekyll` file (not needed with Actions deploys) |

@@ -1,7 +1,9 @@
 ---
-title: Building & Hosting
-description: Create a production build and deploy it to a static hosting platform.
+title: Static Hosting
+description: Build a React SPA and deploy the static files to Vercel, Netlify, Cloudflare Pages or Firebase.
 ---
+
+A Vite (or CRA) app builds to plain files, so it can be hosted on any static host or CDN. Not sure whether your app is static? See [Static vs Server Deployment](/docs/deployment/overview).
 
 ## 1. Build
 
@@ -98,16 +100,21 @@ sequenceDiagram
 
 ## GitHub Pages
 
-The site is served from `https://<user>.github.io/<repo>/`, so set the base path:
+GitHub Pages needs a base path and has no rewrite rules, so it has its own page: [GitHub Pages](/docs/deployment/github-pages).
 
-```js title="vite.config.js"
-export default defineConfig({
-  base: '/my-repo/',
-  plugins: [react()],
-});
+## Cloudflare Pages
+
+Connect the repository, then set the build command to `npm run build` and the output directory to `dist`. For SPA routing, add a `public/_redirects` file with the same content as Netlify's.
+
+## AWS S3 + CloudFront
+
+```bash
+npm run build
+aws s3 sync dist/ s3://my-app-bucket --delete
+aws cloudfront create-invalidation --distribution-id ABC123 --paths "/index.html"
 ```
 
-Then deploy `dist/` with the `gh-pages` package or a GitHub Actions workflow. GitHub Pages has no rewrite rules, so use `HashRouter` or copy `index.html` to `404.html`.
+Serve the bucket through CloudFront (HTTPS and caching), and map 403 and 404 errors to `/index.html` with status 200 for SPA routing. Hashed assets can be cached for a year. Invalidate `index.html` on every deploy, because it's the one file whose name never changes.
 
 ## Pre-deploy checklist
 

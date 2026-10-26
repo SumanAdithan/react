@@ -1,0 +1,206 @@
+---
+title: Server Deployment
+description: Deploy server-rendered React (Next.js, React Router SSR) and Node.js APIs on managed platforms or your own server.
+---
+
+You need a running server when your app uses **SSR, Server Components, Server Functions, API routes, middleware, cookies-based auth or on-demand ISR**. See [Static vs Server](/docs/deployment/overview) if you're unsure.
+
+## Options at a glance
+
+| Option | Examples | You manage | Best for |
+| --- | --- | --- | --- |
+| **Serverless / managed** | Vercel, Netlify, Cloudflare Workers, AWS Amplify | Almost nothing | Next.js apps, fast setup, auto-scaling |
+| **Platform as a service** | Render, Railway, Fly.io, Heroku | The app and its env vars | Long-running Node servers, WebSockets, background jobs |
+| **Containers** | Docker on Fly.io, Cloud Run, ECS, Kubernetes | Image, scaling config | Portability, many services, companies with infra teams |
+| **Virtual server (VPS)** | DigitalOcean, Hetzner, EC2, Lightsail | Everything: OS, Node, Nginx, TLS, updates | Full control, predictable cost |
+
+<Mermaid
+  chart="
+flowchart LR
+    U[Users] --> CDN[CDN: static assets and cached pages]
+    CDN --> LB[Load balancer or reverse proxy]
+    LB --> N1[Node server 1]
+    LB --> N2[Node server 2]
+    N1 --> DB[(Database)]
+    N2 --> DB
+    N1 --> API[Third-party APIs]
+"
+/>
+
+## Next.js on Vercel (managed)
+
+Vercel builds Next.js, so every feature works without configuration.
+
+<Steps>
+<Step>
+Push to GitHub, then on vercel.com choose **Add New → Project** and import the repository.
+</Step>
+<Step>
+Add environment variables (`DATABASE_URL`, `AUTH_SECRET`...) for Production and Preview.
+</Step>
+<Step>
+Deploy. Each push to `main` deploys to production, and every pull request gets its own preview URL.
+</Step>
+</Steps>
+
+Static pages go to the CDN, dynamic routes become serverless or edge functions, and ISR is cached automatically. **Netlify** offers a similar Next.js runtime.
+
+<Callout type="warn" title="Serverless limits">
+  Functions have execution time limits and no persistent memory or filesystem between requests. Don't keep state in variables, write uploads to local disk, or hold WebSocket connections. Use a database, object storage (S3, R2) and a managed realtime service instead.
+</Callout>
+
+## Self-hosting Next.js on a Node server
+
+`next build` + `next start` runs a production server that supports **all** Next.js features.
+
+```bash
+npm ci
+npm run build
+npm start            # next start, listens on port 3000 (PORT env var to change)
+```
+
+### Standalone output (smaller deploys)
+
+```js title="next.config.mjs"
+const config = {
+  output: 'standalone', // copies only the files needed at runtime into .next/standalone
+};
+```
+
+```bash
+npm run build
+cp -r public .next/standalone/
+cp -r .next/static .next/standalone/.next/
+node .next/standalone/server.js
+```
+
+This is the usual basis for [Docker images](/docs/deployment/docker#nextjs-server).
+
+### Keep it running with PM2
+
+```bash
+npm i -g pm2
+pm2 start npm --name my-app -- start      # or: pm2 start .next/standalone/server.js --name my-app
+pm2 save
+pm2 startup                               # restart on reboot
+pm2 logs my-app
+pm2 reload my-app                         # zero-downtime reload after a new build
+```
+
+### Put Nginx in front
+
+Nginx terminates HTTPS, compresses responses and forwards requests to Node:
+
+```nginx title="/etc/nginx/sites-available/my-app"
+server {
+    server_name app.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;     # WebSockets
+        proxy_set_header Connection "upgrade";
+    }
+
+    # long-lived caching for hashed build assets
+    location /_next/static/ {
+        proxy_pass http://127.0.0.1:3000;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/my-app /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d app.example.com      # free HTTPS certificate from Let's Encrypt
+```
+
+<Callout title="Multiple instances">
+  When running more than one Next.js instance behind a load balancer, share the ISR cache (a custom cache handler backed by Redis, for example) and set the same `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` on every instance so Server Actions work across them.
+</Callout>
+
+## React Router framework mode (SSR)
+
+```bash
+npm run build                                   # react-router build → build/server and build/client
+npm start                                       # react-router-serve ./build/server/index.js
+```
+
+Deploy it like any Node app (Render, Railway, Fly.io, a VPS with PM2 and Nginx), or use an adapter for Vercel, Netlify or Cloudflare. Set `ssr: false` in `react-router.config.ts` to build a static SPA instead.
+
+## Static SPA + separate API server
+
+A common split: the React frontend on a static host, and a Node (Express, NestJS, Fastify) API on a server platform.
+
+<Mermaid
+  chart="
+flowchart LR
+    B[Browser] -- HTML, JS, CSS --> S[Static host: app.example.com]
+    B -- fetch JSON --> A[API server: api.example.com]
+    A --> DB[(Database)]
+"
+/>
+
+```js title="server.js (Express API)"
+import express from 'express';
+import cors from 'cors';
+
+const app = express();
+app.use(express.json());
+// allow only your frontend's origin
+app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+
+app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/users', async (_req, res) => res.json(await db.user.findMany()));
+
+app.listen(process.env.PORT ?? 8080, () => console.log('API ready'));
+```
+
+- Point the frontend at it with `VITE_API_URL=https://api.example.com`.
+- Configure **CORS** on the API for the frontend's origin, or serve both from one domain through a reverse proxy (`/api` → API server) to avoid CORS entirely.
+- Use HTTPS for both, and `SameSite`/`Secure` cookies if you authenticate with cookies.
+
+### Deploying the API on Render (similar on Railway and Fly.io)
+
+<Steps>
+<Step>
+Choose **New → Web Service** and connect the repository.
+</Step>
+<Step>
+Set the build command (`npm ci && npm run build`) and the start command (`npm start`).
+</Step>
+<Step>
+Add environment variables and a health check path (`/health`).
+</Step>
+<Step>
+Optionally add a managed PostgreSQL database and use its connection string as `DATABASE_URL`.
+</Step>
+</Steps>
+
+<Callout type="warn">
+  Free tiers often **sleep** after inactivity, so the first request can take 30 seconds or more. Mention this to users, or use a paid instance for production.
+</Callout>
+
+## Environment variables: build time vs runtime
+
+| Kind | Example | When it's read | Visible to users? |
+| --- | --- | --- | --- |
+| Client, build time | `VITE_API_URL`, `NEXT_PUBLIC_SITE_URL` | **Baked into the JS bundle** at build | ✅ Yes, never put secrets here |
+| Server, runtime | `DATABASE_URL`, `AUTH_SECRET`, `STRIPE_SECRET_KEY` | When the server runs | ❌ No |
+
+Changing a `VITE_*` or `NEXT_PUBLIC_*` value requires a **rebuild**. Server variables only need a restart.
+
+## Production checklist
+
+- [ ] `NODE_ENV=production` and a production build (`next build` / `react-router build`)
+- [ ] Secrets only in server-side env vars, never in `NEXT_PUBLIC_*` or `VITE_*`
+- [ ] HTTPS everywhere; HTTP redirects to HTTPS
+- [ ] A health check endpoint, and the process restarts automatically (PM2, platform, Docker `restart`)
+- [ ] Logging and error monitoring (Sentry, platform logs)
+- [ ] Long cache headers for hashed assets; `index.html` and HTML pages not cached forever
+- [ ] Database migrations run as part of the deploy
+- [ ] Rollback plan: keep the previous build or image tag

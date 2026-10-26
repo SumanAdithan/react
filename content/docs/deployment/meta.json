@@ -1,5 +1,5 @@
 {
   "title": "Deployment",
   "icon": "CloudUpload",
-  "pages": ["hosting"]
+  "pages": ["overview", "hosting", "github-pages", "server-deployment", "docker"]
 }

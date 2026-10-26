@@ -1,0 +1,191 @@
+---
+title: Docker
+description: Package a static React SPA with Nginx, or a Next.js server, as a Docker image.
+---
+
+**Docker** packages your app with everything it needs to run into an **image**. The same image runs on your laptop, in CI, and on any container platform: Fly.io, Google Cloud Run, AWS ECS, Azure Container Apps or Kubernetes.
+
+Both examples use **multi-stage builds**: one stage installs and builds, and a small final stage contains only what's needed to run.
+
+<Mermaid
+  chart="
+flowchart LR
+    subgraph Build stage
+        A[node image] --> B[npm ci] --> C[npm run build]
+    end
+    subgraph Runtime stage
+        D[nginx or slim node image] --> E[only the build output]
+    end
+    C -- copy dist or standalone --> E
+    E --> F[Small production image]
+"
+/>
+
+## Static SPA (Vite + Nginx)
+
+```dockerfile title="Dockerfile"
+# ---- build ----
+FROM node:24-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+# client env vars are baked in at build time
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+RUN npm run build
+
+# ---- serve ----
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+```
+
+```nginx title="nginx.conf"
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+
+    # SPA fallback: unknown paths load index.html so React Router can handle them
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # cache hashed assets for a year; never cache index.html
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+}
+```
+
+```bash
+docker build -t my-spa --build-arg VITE_API_URL=https://api.example.com .
+docker run -p 8080:80 my-spa        # http://localhost:8080
+```
+
+## Next.js server
+
+Enable standalone output first:
+
+```js title="next.config.mjs"
+const config = { output: 'standalone' };
+```
+
+```dockerfile title="Dockerfile"
+# ---- dependencies ----
+FROM node:24-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# ---- build ----
+FROM node:24-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ARG NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+RUN npm run build
+
+# ---- run ----
+FROM node:24-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+# don't run as root
+RUN addgroup -S app && adduser -S app -G app
+COPY --from=build --chown=app:app /app/.next/standalone ./
+COPY --from=build --chown=app:app /app/.next/static ./.next/static
+COPY --from=build --chown=app:app /app/public ./public
+USER app
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+```bash
+docker build -t my-next-app .
+docker run -p 3000:3000 -e DATABASE_URL=postgres://... my-next-app
+```
+
+Server secrets such as `DATABASE_URL` are passed at **runtime** with `-e` or your platform's settings. Only `NEXT_PUBLIC_*` values need to be present at build time.
+
+## .dockerignore
+
+Keep the build context small, and keep secrets out of the image:
+
+```text title=".dockerignore"
+node_modules
+.next
+dist
+out
+.git
+.env*
+Dockerfile
+```
+
+## docker compose: app + API + database
+
+```yaml title="compose.yaml"
+services:
+  web:
+    build: ./web
+    ports: ['3000:3000']
+    environment:
+      API_URL: http://api:8080
+    depends_on: [api]
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    volumes: ['db-data:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+
+volumes:
+  db-data:
+```
+
+```bash
+docker compose up --build
+docker compose down
+```
+
+Services reach each other by service name (`http://api:8080`). Only `web` publishes a port to your machine.
+
+## Shipping the image
+
+```bash
+docker tag my-next-app ghcr.io/username/my-next-app:1.0.0
+docker push ghcr.io/username/my-next-app:1.0.0
+```
+
+Then deploy the image on a container platform:
+
+| Platform | Command or flow |
+| --- | --- |
+| **Fly.io** | `fly launch` detects the Dockerfile; `fly deploy` ships updates |
+| **Google Cloud Run** | `gcloud run deploy --image ghcr.io/...` (scales to zero) |
+| **Render / Railway** | Point at the repository; they build the Dockerfile |
+| **AWS ECS / Azure Container Apps** | Push to ECR or ACR, then create a service |
+| **Your VPS** | `docker compose pull && docker compose up -d` behind Nginx or Caddy |
+
+<Callout title="Tag images properly">
+  Tag images with a version or git commit SHA, not only `latest`. That way you can roll back by redeploying the previous tag.
+</Callout>

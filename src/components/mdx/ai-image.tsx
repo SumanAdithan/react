@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { basePath } from '@/lib/shared';
 
 type AIImageProps = {
   /** path under public/, e.g. /images/ai/virtual-dom-diff.png */
@@ -21,7 +22,7 @@ export function AIImage({ src, alt, prompt, caption }: AIImageProps) {
     return (
       <figure className="my-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} loading="lazy" className="w-full rounded-xl border" />
+        <img src={`${basePath}${src}`} alt={alt} loading="lazy" className="w-full rounded-xl border" />
         {caption && (
           <figcaption className="mt-2 text-center text-sm text-fd-muted-foreground">{caption}</figcaption>
         )}

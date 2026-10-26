@@ -1,4 +1,6 @@
 import { source } from '@/lib/source';
 import { createFromSource } from 'fumadocs-core/search/server';
 
-export const { GET } = createFromSource(source);
+// statically exported search index, searched in the browser
+export const revalidate = false;
+export const { staticGET: GET } = createFromSource(source);
