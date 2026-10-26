@@ -1,0 +1,52 @@
+---
+title: useLayoutEffect
+description: Run an effect synchronously after DOM changes but before the browser paints.
+---
+
+`useLayoutEffect` has the same signature as `useEffect`. The difference is **when** it runs:
+
+<Mermaid
+  chart="
+flowchart LR
+    A[Render] --> B[Commit DOM changes]
+    B --> C[useLayoutEffect: runs synchronously and blocks paint]
+    C --> D[Browser paints the screen]
+    D --> E[useEffect: runs after paint]
+"
+/>
+
+| | `useEffect` | `useLayoutEffect` |
+| --- | --- | --- |
+| Timing | After the browser paints (asynchronous) | After DOM mutations, **before** paint (synchronous) |
+| Blocks the screen | No | Yes, until it finishes |
+| Use for | Almost everything: data fetching, subscriptions, logging | Measuring layout (size, position) and adjusting before the user sees it |
+
+## When the difference is visible
+
+If you only `console.log`, both look identical. The difference shows up when an effect **changes layout based on a DOM measurement**. With `useEffect` the user briefly sees the wrong position (a flicker); with `useLayoutEffect` they don't.
+
+```jsx
+import { useLayoutEffect, useRef, useState } from 'react';
+
+function Tooltip({ targetRect, children }) {
+  const ref = useRef(null);
+  const [height, setHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    // measure before paint, so the tooltip never flashes in the wrong place
+    setHeight(ref.current.getBoundingClientRect().height);
+  }, []);
+
+  const top = targetRect.top - height; // place above the target
+
+  return (
+    <div ref={ref} style={{ position: 'absolute', top, left: targetRect.left }}>
+      {children}
+    </div>
+  );
+}
+```
+
+<Callout type="warn">
+  Because it blocks painting, heavy work in `useLayoutEffect` makes the UI feel slow. Use `useEffect` by default and switch only if you see a flicker. `useLayoutEffect` also doesn't run during server rendering.
+</Callout>

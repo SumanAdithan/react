@@ -1,0 +1,152 @@
+---
+title: Queries
+description: getBy, queryBy, findBy and getAllBy, plus querying by role, label, text and test ID, and scoping with within.
+---
+
+## Query variants
+
+| Variant | No match | 1 match | More than 1 match | Async? | Use for |
+| --- | --- | --- | --- | --- | --- |
+| `getBy...` | ❌ throws | returns it | ❌ throws | No | Elements that **should exist** |
+| `queryBy...` | returns `null` | returns it | ❌ throws | No | Asserting something **doesn't exist** |
+| `findBy...` | ❌ rejects | resolves | ❌ rejects | **Yes** (waits up to 1 s) | Elements that **appear later** |
+| `getAllBy...` / `queryAllBy...` / `findAllBy...` | | array | array | | **Multiple** elements |
+
+### getByText
+
+```jsx
+test('finds button by text', () => {
+  render(<Button label="Submit" />);
+  expect(screen.getByText('Submit')).toBeInTheDocument();
+});
+```
+
+### getBy vs queryBy
+
+```jsx
+test('uses getBy and queryBy', () => {
+  render(<Button label="Hello" />);
+
+  // getBy: throws if not found
+  expect(screen.getByText('Hello')).toBeInTheDocument();
+
+  // queryBy: returns null if not found. Use it to assert absence
+  expect(screen.queryByText('Goodbye')).toBeNull();
+  // or: expect(screen.queryByText('Goodbye')).not.toBeInTheDocument();
+});
+```
+
+### findBy (async)
+
+```jsx
+test('findBy waits for async elements', async () => {
+  render(<UserProfile id={1} />); // fetches, then renders the name
+  const name = await screen.findByText('Leanne Graham');
+  expect(name).toBeInTheDocument();
+});
+```
+
+## Query types, in order of priority
+
+Prefer queries that reflect how users and assistive technology find elements:
+
+### 1. getByRole (preferred)
+
+```jsx
+test('queries button by role', () => {
+  render(<Button label="Save" />);
+  const button = screen.getByRole('button', { name: 'Save' });
+  expect(button).toBeInTheDocument();
+});
+```
+
+Common roles: `button`, `link`, `heading` (`{ level: 2 }`), `textbox`, `checkbox`, `combobox` (select), `listitem`, `dialog`, `img`.
+
+### 2. getByLabelText (form fields)
+
+```jsx title="Input.jsx"
+export function Input({ label }) {
+  return (
+    <div>
+      <label htmlFor="input">{label}</label>
+      <input id="input" />
+    </div>
+  );
+}
+```
+
+```jsx
+test('queries input field by label', () => {
+  render(<Input label="Name" />);
+  expect(screen.getByLabelText('Name')).toBeInTheDocument();
+});
+```
+
+### 3. getByPlaceholderText, getByText, getByDisplayValue, getByAltText, getByTitle
+
+```jsx
+screen.getByPlaceholderText('Email');
+screen.getByText(/welcome/i);       // regex: case-insensitive, partial match
+screen.getByDisplayValue('John');   // current value of an input
+screen.getByAltText('Profile photo');
+```
+
+### 4. getByTestId (last resort)
+
+Use it when there's no accessible way to select the element:
+
+```jsx title="Button.jsx"
+export default function Button({ label, 'data-testid': testId, onClick }) {
+  return (
+    <button data-testid={testId} onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+```
+
+```jsx
+test('queries by test ID', () => {
+  render(<Button label="Test" data-testid="custom-button" />);
+  expect(screen.getByTestId('custom-button')).toBeInTheDocument();
+});
+```
+
+## Multiple elements
+
+```jsx
+test('finds multiple elements', () => {
+  render(
+    <>
+      <Button label="Button 1" />
+      <Button label="Button 2" />
+    </>
+  );
+  const buttons = screen.getAllByRole('button');
+  expect(buttons).toHaveLength(2);
+});
+```
+
+## Scoping with `within`
+
+Search **inside** one element only, which is useful when the same text appears in several places:
+
+```jsx
+import { render, screen, within } from '@testing-library/react';
+
+test('search within an element', () => {
+  render(
+    <div data-testid="container">
+      <button>Nested button</button>
+    </div>
+  );
+
+  const container = screen.getByTestId('container');
+  const button = within(container).getByText('Nested button');
+  expect(button).toBeInTheDocument();
+});
+```
+
+<Callout title="Debugging">
+  `screen.debug()` prints the current DOM. `screen.logTestingPlaygroundURL()` gives you a link that suggests the best query for each element.
+</Callout>

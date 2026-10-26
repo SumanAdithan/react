@@ -1,0 +1,95 @@
+---
+title: End-to-End Testing (Playwright)
+description: Test complete user flows in real browsers.
+---
+
+Unit and component tests check pieces in isolation. **End-to-end (E2E)** tests drive a **real browser** through the **real app** (routing, API, auth) the way a user would.
+
+| | Vitest + Testing Library | Playwright |
+| --- | --- | --- |
+| Runs in | jsdom (simulated DOM) | Chromium, Firefox, WebKit |
+| Scope | One component or hook | Whole app, all pages |
+| Speed | Milliseconds | Seconds |
+| Use for | Most tests | Critical flows: login, checkout, sign-up |
+
+## Setup
+
+```bash
+npm init playwright@latest
+```
+
+This creates `playwright.config.ts`, an `e2e/` (or `tests/`) folder, and installs the browsers.
+
+```ts title="playwright.config.ts (excerpt)"
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './e2e',
+  use: { baseURL: 'http://localhost:5173', trace: 'on-first-retry' },
+  // start the dev server automatically before the tests
+  webServer: { command: 'npm run dev', url: 'http://localhost:5173', reuseExistingServer: true },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile', use: { ...devices['Pixel 7'] } },
+  ],
+});
+```
+
+## Writing a test
+
+Playwright's locators look a lot like [Testing Library queries](/docs/testing/queries):
+
+```ts title="e2e/login.spec.ts"
+import { test, expect } from '@playwright/test';
+
+test('user can log in and reach the dashboard', async ({ page }) => {
+  await page.goto('/login');
+
+  await page.getByLabel('Email').fill('john@gmail.com');
+  await page.getByLabel('Password').fill('test@123');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  // assertions retry automatically until they pass or time out
+  await expect(page).toHaveURL('/dashboard');
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+});
+
+test('shows an error for wrong credentials', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('wrong@gmail.com');
+  await page.getByLabel('Password').fill('nope');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByText('Invalid credentials!')).toBeVisible();
+});
+```
+
+## Mocking the network
+
+```ts
+test('shows users from the API', async ({ page }) => {
+  await page.route('**/api/users', (route) =>
+    route.fulfill({ json: [{ id: 1, name: 'Mocked John' }] })
+  );
+  await page.goto('/users');
+  await expect(page.getByText('Mocked John')).toBeVisible();
+});
+```
+
+## Commands
+
+```bash
+npx playwright test                 # run all tests headless
+npx playwright test --ui            # interactive UI mode with time travel
+npx playwright test --headed        # watch the browser
+npx playwright codegen localhost:5173   # record actions and generate test code
+npx playwright show-report          # open the HTML report
+```
+
+<Callout title="Tips">
+  - Use `getByRole` and `getByLabel` locators, not CSS selectors. They survive refactors.
+  - Don't add `waitForTimeout`. Playwright **auto-waits** for elements and retries assertions.
+  - Log in once and reuse the session with `storageState` to speed up tests.
+  - Run E2E tests in CI on every pull request.
+</Callout>
+
+Alternative: **Cypress**. **Vitest Browser Mode** can also run component tests in a real browser.

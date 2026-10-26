@@ -1,0 +1,60 @@
+---
+title: Overview
+description: Local state, prop drilling, Context and global stores. Which one to choose.
+---
+
+**State** is data that, when it changes, should re-render the components that use it. The question is *where* that state lives.
+
+## The options, from simplest to most powerful
+
+| Level | Tool | Use when |
+| --- | --- | --- |
+| 1. Local | [`useState`](/docs/hooks/use-state) / [`useReducer`](/docs/hooks/use-reducer) | Only one component (and its children) needs it |
+| 2. Lifted | [Lift state up](/docs/fundamentals/lifting-state-up) + props | A few nearby components share it |
+| 3. Context | [`useContext`](/docs/hooks/use-context) | App-wide, rarely changing data: theme, auth user, locale |
+| 4. Global store | [Redux Toolkit](/docs/state-management/redux-toolkit), [Zustand](/docs/state-management/zustand) | Large, frequently updated state shared by many parts of the app |
+| ⭐ Server state | [TanStack Query](/docs/libraries/tanstack-query) | Data fetched from an API |
+
+<Mermaid
+  chart="
+flowchart TD
+    A{Where does the data come from?} -- From an API --> Q[TanStack Query]
+    A -- Created in the browser --> B{Who needs it?}
+    B -- One component --> L[useState or useReducer]
+    B -- A few nearby components --> U[Lift state up]
+    B -- Many components --> C{Changes often or complex logic?}
+    C -- No --> X[Context]
+    C -- Yes --> Z[Zustand or Redux Toolkit]
+"
+/>
+
+## Prop drilling
+
+Sharing state through props means every component in between must accept and forward it:
+
+```text
+App (user) → Layout (user) → Sidebar (user) → Avatar (uses user)
+```
+
+Passing data through layers that don't use it is called **prop drilling**. It works, but it gets painful as the tree grows: every intermediate component is coupled to data it doesn't care about.
+
+Ways out:
+
+1. **Composition**: pass `<Avatar user={user} />` as `children` instead.
+2. **Context**: any descendant can read the value directly.
+3. **A global store**: components subscribe to exactly the slice they need.
+
+## Context vs Redux
+
+| | Context | Redux Toolkit |
+| --- | --- | --- |
+| Built in | ✅ | ❌ (~12 KB) |
+| Purpose | **Dependency injection**: pass a value down | **State management**: predictable updates |
+| Re-renders | Every consumer, whenever the value changes | Only components whose **selected** slice changed |
+| DevTools / time travel | ❌ | ✅ |
+| Middleware (async, logging) | ❌ | ✅ |
+| Boilerplate | Low | Moderate (much less than classic Redux) |
+
+<Callout title="Rule of thumb">
+  Start with local state. Use **TanStack Query** for server data. Reach for **Context** for a few global values and **Zustand or Redux Toolkit** when client state gets large or complex.
+</Callout>

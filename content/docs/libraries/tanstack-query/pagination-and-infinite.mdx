@@ -1,0 +1,168 @@
+---
+title: Pagination & Infinite Scroll
+description: Paginated queries without loading flicker, and load-more or infinite lists with useInfiniteQuery.
+---
+
+## Paginated queries
+
+Put the page in the query key. `placeholderData: keepPreviousData` keeps the **previous page visible** while the next one loads, so the table doesn't flash a spinner.
+
+```jsx
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+
+const PAGE_SIZE = 10;
+
+function Posts() {
+  const [page, setPage] = useState(1);
+
+  const { data, isPending, isError, error, isFetching, isPlaceholderData } = useQuery({
+    queryKey: ['posts', page],
+    queryFn: () =>
+      fetch(`https://jsonplaceholder.typicode.com/posts?_page=${page}&_limit=${PAGE_SIZE}`).then((r) =>
+        r.json()
+      ),
+    placeholderData: keepPreviousData,
+  });
+
+  if (isPending) return <p>Loading...</p>;
+  if (isError) return <p>{error.message}</p>;
+
+  const hasMore = data.length === PAGE_SIZE;
+
+  return (
+    <>
+      <ul style={{ opacity: isPlaceholderData ? 0.5 : 1 }}>
+        {data.map((post) => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+
+      <button onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1}>
+        Previous
+      </button>
+      <span> Page {page} </span>
+      <button onClick={() => setPage((p) => p + 1)} disabled={isPlaceholderData || !hasMore}>
+        Next
+      </button>
+      {isFetching && <small> Loading...</small>}
+    </>
+  );
+}
+```
+
+### Prefetch the next page
+
+```jsx
+const queryClient = useQueryClient();
+
+useEffect(() => {
+  if (!isPlaceholderData && hasMore) {
+    queryClient.prefetchQuery({
+      queryKey: ['posts', page + 1],
+      queryFn: () => fetchPosts(page + 1),
+    });
+  }
+}, [page, isPlaceholderData, hasMore, queryClient]);
+```
+
+<Callout title="Keep the page in the URL">
+  Store `page` with [`useSearchParams`](/docs/routing/route-parameters#query-parameters-qreactpage2) instead of `useState`, so the page survives a refresh and can be shared.
+</Callout>
+
+## Infinite queries
+
+`useInfiniteQuery` handles "Load more" buttons and infinite scroll. It keeps **all loaded pages** in `data.pages`.
+
+```jsx
+import { useInfiniteQuery } from '@tanstack/react-query';
+
+async function fetchProjects({ pageParam }) {
+  const res = await fetch(`/api/projects?cursor=${pageParam}`);
+  return res.json(); // { items: [...], nextCursor: 20 | null }
+}
+
+function Projects() {
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status, error } = useInfiniteQuery({
+    queryKey: ['projects'],
+    queryFn: fetchProjects,
+    initialPageParam: 0,                                   // required in v5
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined, // undefined = no more pages
+  });
+
+  if (status === 'pending') return <p>Loading...</p>;
+  if (status === 'error') return <p>{error.message}</p>;
+
+  return (
+    <>
+      {data.pages.map((page, i) => (
+        <Fragment key={i}>
+          {page.items.map((project) => (
+            <p key={project.id}>{project.name}</p>
+          ))}
+        </Fragment>
+      ))}
+
+      <button onClick={() => fetchNextPage()} disabled={!hasNextPage || isFetchingNextPage}>
+        {isFetchingNextPage ? 'Loading more...' : hasNextPage ? 'Load more' : 'Nothing more to load'}
+      </button>
+    </>
+  );
+}
+```
+
+### Page-number APIs
+
+When the API takes `?page=N` instead of a cursor:
+
+```js
+useInfiniteQuery({
+  queryKey: ['posts'],
+  queryFn: ({ pageParam }) => fetch(`/api/posts?_page=${pageParam}&_limit=10`).then((r) => r.json()),
+  initialPageParam: 1,
+  getNextPageParam: (lastPage, allPages) => (lastPage.length === 10 ? allPages.length + 1 : undefined),
+});
+```
+
+### Infinite scroll with IntersectionObserver
+
+Load the next page automatically when a "sentinel" element at the bottom scrolls into view:
+
+```jsx
+function useInView(callback) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && callback(), {
+      rootMargin: '200px', // start loading a bit before the bottom
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [callback]);
+  return ref;
+}
+
+function Feed() {
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({ /* ... */ });
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const sentinelRef = useInView(loadMore);
+
+  return (
+    <>
+      {data?.pages.flatMap((p) => p.items).map((item) => <Card key={item.id} item={item} />)}
+      <div ref={sentinelRef} />
+      {isFetchingNextPage && <Spinner />}
+    </>
+  );
+}
+```
+
+For thousands of items, combine this with [TanStack Virtual](/docs/libraries/tanstack-table/server-side#virtualising-large-tables) so only the visible rows are rendered.
+
+<Callout>
+  Use `maxPages` to cap how many pages stay in memory for very long feeds, and `getPreviousPageParam` to support scrolling in both directions.
+</Callout>

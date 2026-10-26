@@ -1,0 +1,5 @@
+{
+  "title": "Modern React",
+  "icon": "Sparkles",
+  "pages": ["react-19", "server-components", "react-compiler"]
+}

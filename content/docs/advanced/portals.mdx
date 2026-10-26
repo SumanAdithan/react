@@ -1,0 +1,51 @@
+---
+title: Portals
+description: Render children into a DOM node outside the parent component's hierarchy.
+---
+
+`createPortal` renders JSX into **a different DOM node** while keeping it in the same place in the **React tree**: it still receives context, and its events still bubble to React parents.
+
+It's useful for modals, tooltips, dropdowns and toasts that would otherwise be clipped by a parent's `overflow: hidden` or trapped under a `z-index`.
+
+<AIImage
+  src="/images/ai/portal-escape.png"
+  alt="A modal escaping a clipped container to render at the top level of the page"
+  prompt="Split scene. Left half: a small card container with a dashed border representing overflow hidden; a modal dialog inside it is cut off at the edges, with a red cross badge. Right half: the same card, but the modal floats out of it through a glowing circular portal and sits centred above the whole page on a dimmed backdrop, with a green check badge. A thin glowing thread still connects the modal back to its card to show it is still its React child. Labels: 'overflow: hidden', 'createPortal'. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+```jsx title="Modal.jsx"
+import { createPortal } from 'react-dom';
+
+function Modal({ open, onClose, children }) {
+  if (!open) return null;
+
+  return createPortal(
+    <div className="backdrop" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        {children}
+        <button onClick={onClose}>Close</button>
+      </div>
+    </div>,
+    document.body // render directly inside <body>
+  );
+}
+```
+
+```jsx
+function App() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ overflow: 'hidden' }}>
+      <button onClick={() => setOpen(true)}>Open modal</button>
+      <Modal open={open} onClose={() => setOpen(false)}>
+        <h2>Hello from a portal</h2>
+      </Modal>
+    </div>
+  );
+}
+```
+
+<Callout title="Native alternative">
+  The HTML `<dialog>` element (`ref.current.showModal()`) is rendered in the browser's top layer, so it escapes overflow and z-index problems without a portal.
+</Callout>

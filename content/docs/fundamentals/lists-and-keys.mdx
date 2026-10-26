@@ -1,0 +1,83 @@
+---
+title: Lists & Keys
+description: Render arrays with map() and help React track items with keys.
+---
+
+Use `Array.prototype.map()` to turn an array of data into an array of elements:
+
+```jsx
+function Garage() {
+  const carList = [
+    { id: 1, brand: 'BMW', color: 'red' },
+    { id: 2, brand: 'Ford', color: 'green' },
+    { id: 3, brand: 'Tesla', color: 'black' },
+  ];
+
+  return (
+    <ul>
+      {carList.map((car) => (
+        <li key={car.id}>
+          <Car carInfo={car} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Why keys matter
+
+A `key` gives each item a **stable identity** between renders. During [reconciliation](/docs/getting-started/introduction#dom-vs-virtual-dom) React uses keys to work out which items were added, removed or reordered, instead of treating them all as one undifferentiated list.
+
+- Keys must be **unique among siblings** (not globally).
+- Keys must be **stable**: the same item gets the same key on every render.
+- Keys are **not passed as props** and don't appear in the HTML.
+- Put the key on the **outermost element** returned from `map`.
+
+<AIImage
+  src="/images/ai/list-keys-identity.png"
+  alt="List items wearing name tags so React can match them after reordering"
+  prompt="Two vertical columns of rounded list-item cards, 'Before' on the left and 'After' on the right. Each card wears a small coloured name tag with a number: 1, 2, 3. In the After column the cards are shuffled into the order 3, 1, 2. Curved glowing connector lines link each card to its same-numbered card in the other column, showing that identity follows the tag, not the position. Labels: 'Before', 'After', 'key'. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+## Choosing a key
+
+| Source | Good key? |
+| --- | --- |
+| Database ID (`user.id`) | ✅ Best |
+| A unique field (`email`, `slug`) | ✅ |
+| Array index (`i`) | ⚠️ Only if the list is static: never reordered, filtered or added to in the middle |
+| `Math.random()` / `crypto.randomUUID()` during render | ❌ Changes every render, so React re-creates every item |
+
+<Callout type="warn" title="Why index keys break">
+  With index keys, deleting the first item shifts every index. React then reuses the wrong component instances, so input values, focus and component state end up attached to the wrong rows.
+</Callout>
+
+## Filtering and rendering
+
+```jsx
+const visibleTodos = todos.filter((t) => !t.done);
+
+return (
+  <ul>
+    {visibleTodos.map((t) => (
+      <TodoItem key={t.id} todo={t} />
+    ))}
+  </ul>
+);
+```
+
+## Fragments with keys
+
+When each item renders several siblings, use `Fragment` so you can attach a key:
+
+```jsx
+import { Fragment } from 'react';
+
+{glossary.map((term) => (
+  <Fragment key={term.id}>
+    <dt>{term.word}</dt>
+    <dd>{term.definition}</dd>
+  </Fragment>
+))}
+```

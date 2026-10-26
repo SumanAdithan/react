@@ -1,0 +1,57 @@
+---
+title: useState
+description: Add state to a function component.
+---
+
+```jsx
+const [state, setState] = useState(initialValue);
+```
+
+`useState` re-renders the **whole component** whenever its value changes, so the UI always reflects the current data.
+
+## Basic counter
+
+```jsx
+import { useState } from 'react';
+
+function App() {
+  const [count, setCount] = useState(0);
+
+  return <button onClick={() => setCount(count + 1)}>Clicked {count} times</button>;
+}
+```
+
+## Updater function
+
+Use `prev => next` when the new value depends on the old one:
+
+```jsx
+const add = () => {
+  setNum((prevState) => prevState + 1);
+};
+```
+
+This always uses the latest value, even when several updates are batched together or the update runs later (in a `setTimeout`, for example).
+
+## Lazy initial state
+
+If the initial value is expensive to compute, pass a **function**. React calls it only on the first render:
+
+```jsx
+// ❌ readFromStorage() runs on EVERY render (the result is ignored after the first)
+const [todos, setTodos] = useState(readFromStorage());
+
+// ✅ runs once
+const [todos, setTodos] = useState(() => readFromStorage());
+```
+
+## Things to know
+
+- **Same value = no re-render.** If you set state to a value equal to the current one (`Object.is`), React skips the re-render.
+- **Replace, don't merge.** Unlike class `setState`, the setter *replaces* the value, so spread objects yourself: `setUser({ ...user, name })`.
+- **Never mutate** state objects or arrays. See [Updating Objects & Arrays](/docs/fundamentals/updating-objects-and-arrays).
+- The setter function is **stable**: its identity never changes, so it's safe to leave out of effect dependencies.
+
+<Callout title="See also">
+  [State fundamentals](/docs/fundamentals/state) · [useReducer](/docs/hooks/use-reducer) for complex state.
+</Callout>

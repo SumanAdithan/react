@@ -1,0 +1,57 @@
+---
+title: Snapshot Testing
+description: Save rendered output to a file and catch unexpected changes.
+---
+
+A **snapshot test** saves the rendered output the first time it runs. On later runs it compares the new output with the saved one and **fails if anything changed**.
+
+```jsx title="__tests__/UsernameDisplay.test.jsx"
+import { describe, expect, it } from 'vitest';
+import { render } from '@testing-library/react';
+import { UsernameDisplay } from '../components/UsernameDisplay';
+
+describe('UsernameDisplay', () => {
+  it('should render username', () => {
+    const result = render(<UsernameDisplay username="john" />);
+    expect(result.container).toMatchSnapshot();
+  });
+});
+```
+
+The first run creates `__snapshots__/UsernameDisplay.test.jsx.snap`:
+
+```js title="__snapshots__/UsernameDisplay.test.jsx.snap"
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`UsernameDisplay > should render username 1`] = `
+<div>
+  <div>
+    <span>
+      john
+    </span>
+  </div>
+</div>
+`;
+```
+
+## When the component changes on purpose
+
+The test fails and shows a diff. If the change is intended, **update the snapshot**:
+
+```bash
+npx vitest -u        # or press "u" in watch mode
+```
+
+Commit `.snap` files together with your code.
+
+## Inline snapshots
+
+Store the snapshot inside the test file instead:
+
+```jsx
+expect(screen.getByRole('heading').textContent).toMatchInlineSnapshot(`"Hello john"`);
+```
+
+<Callout type="warn" title="Use sparingly">
+  Large snapshots break on every small markup change, and reviewers end up approving updates without reading them. Prefer explicit assertions (`getByText`, `toHaveValue`). Keep snapshots for small, stable output.
+</Callout>

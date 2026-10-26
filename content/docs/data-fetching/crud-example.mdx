@@ -1,0 +1,174 @@
+---
+title: 'Example: CRUD User Table'
+description: A full create, read, update and delete example using fetch, JSONPlaceholder and Blueprint UI.
+---
+
+This example builds a user table where you can **list**, **add**, **edit** and **delete** users. It uses the [Blueprint](https://blueprintjs.com) component library for the UI.
+
+```bash
+npm i @blueprintjs/core
+```
+
+```css title="App.css"
+/* use ~ to import a CSS file from node_modules (webpack/CRA syntax) */
+@import '~normalize.css';
+@import '~@blueprintjs/core/lib/css/blueprint.css';
+```
+
+<Callout title="Vite">
+  In Vite, drop the `~`: `@import 'normalize.css';`, or import the CSS from JavaScript: `import '@blueprintjs/core/lib/css/blueprint.css';`.
+</Callout>
+
+## Full component
+
+```jsx title="App.jsx"
+import { useEffect, useState } from 'react';
+import { Button, EditableText, InputGroup, OverlayToaster } from '@blueprintjs/core';
+
+const API = 'https://jsonplaceholder.typicode.com/users';
+const toaster = OverlayToaster.create({ position: 'top' });
+const notify = (message) => toaster.show({ message, intent: 'success', timeout: 3000 });
+
+function App() {
+  const [users, setUsers] = useState([]);
+  const [newUser, setNewUser] = useState({ name: '', email: '', website: '' });
+
+  // READ: load all users once
+  useEffect(() => {
+    fetch(API)
+      .then((res) => res.json())
+      .then(setUsers);
+  }, []);
+
+  // CREATE
+  async function addUser() {
+    const name = newUser.name.trim();
+    const email = newUser.email.trim();
+    const website = newUser.website.trim();
+    if (!name || !email || !website) return;
+
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify({ name, email, website }),
+    });
+    const created = await res.json();
+
+    setUsers((prev) => [...prev, created]);
+    setNewUser({ name: '', email: '', website: '' });
+    notify('User added successfully');
+  }
+
+  // local edit while typing in an EditableText
+  function onChangeHandler(id, key, value) {
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, [key]: value } : u)));
+  }
+
+  // UPDATE
+  async function updateUser(id) {
+    const user = users.find((u) => u.id === id);
+    await fetch(`${API}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify(user),
+    });
+    notify('User updated successfully');
+  }
+
+  // DELETE
+  async function deleteUser(id) {
+    await fetch(`${API}/${id}`, { method: 'DELETE' });
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+    notify('User deleted successfully');
+  }
+
+  const handleNewUserChange = (e) =>
+    setNewUser((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
+  return (
+    <div className="App">
+      <table className="bp5-html-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Website</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => (
+            <tr key={user.id}>
+              <td>{user.id}</td>
+              <td>{user.name}</td>
+              <td>
+                <EditableText
+                  value={user.email}
+                  onChange={(value) => onChangeHandler(user.id, 'email', value)}
+                />
+              </td>
+              <td>
+                <EditableText
+                  value={user.website}
+                  onChange={(value) => onChangeHandler(user.id, 'website', value)}
+                />
+              </td>
+              <td>
+                <Button intent="primary" onClick={() => updateUser(user.id)}>
+                  Update
+                </Button>{' '}
+                <Button intent="danger" onClick={() => deleteUser(user.id)}>
+                  Delete
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td></td>
+            <td>
+              <InputGroup name="name" value={newUser.name} onChange={handleNewUserChange} placeholder="Enter name..." />
+            </td>
+            <td>
+              <InputGroup name="email" value={newUser.email} onChange={handleNewUserChange} placeholder="Enter email..." />
+            </td>
+            <td>
+              <InputGroup name="website" value={newUser.website} onChange={handleNewUserChange} placeholder="Enter website..." />
+            </td>
+            <td>
+              <Button intent="success" onClick={addUser}>
+                Add user
+              </Button>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+export default App;
+```
+
+## What each operation does to local state
+
+| Operation | Request | State update |
+| --- | --- | --- |
+| Read | `GET /users` | `setUsers(data)` |
+| Create | `POST /users` | `setUsers(prev => [...prev, created])` |
+| Update | `PUT /users/:id` | Edited locally with `map` while typing, then the request is sent |
+| Delete | `DELETE /users/:id` | `setUsers(prev => prev.filter(u => u.id !== id))` |
+
+<Callout type="warn" title="Fixes from my original notes">
+  - PUT body was `JSON.stringify({ user })`, which wraps the user in an extra object. Changed to `JSON.stringify(user)`.
+  - `intend="success"` was a typo for `intent`.
+  - `<th>` cells must be inside a `<tr>` in `<thead>`.
+  - Merged three separate `newName/newEmail/newWebsite` states into one object with a shared handler (see [Forms](/docs/fundamentals/forms)).
+  - Blueprint v5 renamed `Toaster.create` to `OverlayToaster.create` and the `bp4-` classes to `bp5-`.
+</Callout>
+
+<Callout title="Next step">
+  This example ignores loading and error states for brevity. [TanStack Query](/docs/libraries/tanstack-query) handles them, plus caching and cache invalidation after mutations, with much less code.
+</Callout>

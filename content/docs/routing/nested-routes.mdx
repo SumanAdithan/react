@@ -1,0 +1,77 @@
+---
+title: Nested Routes & Layouts
+description: Group routes under a shared path and render shared layouts with Outlet.
+---
+
+## Grouping routes under a path
+
+```jsx
+<Routes>
+  <Route path="/" element={<Home />} />
+
+  {/* nested routes */}
+  <Route path="/books">
+    {/* child paths are relative: no leading slash */}
+    <Route path="old_books" element={<OldBooks />} /> {/* /books/old_books */}
+    <Route path="new_books" element={<NewBooks />} /> {/* /books/new_books */}
+  </Route>
+</Routes>
+```
+
+## Shared layouts with `<Outlet>`
+
+Give the parent route an `element`. The parent renders `<Outlet />` where the matching child should appear:
+
+```jsx title="App.jsx"
+<Routes>
+  <Route path="/books" element={<BooksLayout />}>
+    <Route index element={<BookList />} />          {/* /books */}
+    <Route path=":id" element={<BookDetail />} />   {/* /books/42 */}
+    <Route path="new" element={<NewBook />} />      {/* /books/new */}
+  </Route>
+</Routes>
+```
+
+```jsx title="BooksLayout.jsx"
+import { Link, Outlet } from 'react-router-dom';
+
+export default function BooksLayout() {
+  return (
+    <>
+      <nav>
+        <Link to="/books">All books</Link> | <Link to="/books/new">Add book</Link>
+      </nav>
+      <Outlet /> {/* BookList, BookDetail or NewBook renders here */}
+    </>
+  );
+}
+```
+
+<Mermaid
+  chart="
+flowchart TD
+    R[BooksLayout at /books] --> O[Outlet]
+    O -- /books --> L[BookList: index route]
+    O -- /books/42 --> D[BookDetail]
+    O -- /books/new --> N[NewBook]
+"
+/>
+
+- An **index route** (`index` instead of `path`) renders at the parent's exact URL.
+- `<Outlet context={value} />` can pass data to children, which read it with `useOutletContext()`.
+
+## App-wide layout (pathless route)
+
+A route **without a `path`** wraps its children in a layout without adding a URL segment:
+
+```jsx
+<Routes>
+  <Route element={<RootLayout />}>   {/* Navbar + Footer + <Outlet /> */}
+    <Route path="/" element={<Home />} />
+    <Route path="/about" element={<About />} />
+  </Route>
+  <Route path="/login" element={<Login />} /> {/* no navbar */}
+</Routes>
+```
+
+The same pattern powers [protected routes](/docs/routing/protected-routes).

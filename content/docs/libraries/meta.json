@@ -1,0 +1,5 @@
+{
+  "title": "Ecosystem & Libraries",
+  "icon": "Package",
+  "pages": ["index", "forms", "tanstack-query", "tanstack-table", "ui", "i18n", "charts"]
+}

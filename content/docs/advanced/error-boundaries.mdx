@@ -1,0 +1,101 @@
+---
+title: Error Boundaries
+description: Catch rendering errors in part of the tree and show a fallback UI instead of a blank page.
+---
+
+By default, an error thrown while rendering **unmounts the whole app**, leaving a blank screen. An **error boundary** catches errors from its child tree and renders a fallback instead.
+
+<Mermaid
+  chart="
+flowchart TD
+    App --> EB1[ErrorBoundary: page level]
+    EB1 --> Header
+    EB1 --> Sidebar
+    EB1 --> EB2[ErrorBoundary: widget level]
+    EB2 --> Chart[Chart throws an error]
+    Chart -. caught by nearest boundary .-> EB2
+    EB2 --> F[Fallback UI, the rest of the page keeps working]
+"
+/>
+
+## Writing one (class component)
+
+Error boundaries are the one feature that still **requires a class component**:
+
+```jsx title="ErrorBoundary.jsx"
+import { Component } from 'react';
+
+class ErrorBoundary extends Component {
+  state = { hasError: false, error: null };
+
+  // update state so the next render shows the fallback
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  // side effects: log to a service such as Sentry
+  componentDidCatch(error, info) {
+    console.error(error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback ?? (
+          <div role="alert">
+            <p>Something went wrong.</p>
+            <button onClick={() => this.setState({ hasError: false })}>Try again</button>
+          </div>
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default ErrorBoundary;
+```
+
+```jsx
+<ErrorBoundary fallback={<p>Couldn't load the dashboard.</p>}>
+  <Dashboard />
+</ErrorBoundary>
+```
+
+## Using `react-error-boundary` (recommended)
+
+```bash
+npm i react-error-boundary
+```
+
+```jsx
+import { ErrorBoundary } from 'react-error-boundary';
+
+function Fallback({ error, resetErrorBoundary }) {
+  return (
+    <div role="alert">
+      <p>Something went wrong: {error.message}</p>
+      <button onClick={resetErrorBoundary}>Try again</button>
+    </div>
+  );
+}
+
+<ErrorBoundary FallbackComponent={Fallback} onReset={() => refetch()}>
+  <Dashboard />
+</ErrorBoundary>;
+```
+
+## What they do and don't catch
+
+| ✅ Caught | ❌ Not caught (use `try/catch`) |
+| --- | --- |
+| Errors during rendering | Event handlers |
+| Errors in lifecycle methods and effects of children | Async code (`setTimeout`, promises) outside render |
+| Errors in constructors | Errors in the boundary itself |
+| | Server-side rendering |
+
+## Where to place them
+
+- One **top-level** boundary for a "Something went wrong" page.
+- **Granular** boundaries around independent widgets (sidebar, chart, comments), so one failure doesn't take down the whole page.
+- Combine with [`<Suspense>`](/docs/advanced/code-splitting) to handle both loading and error states.

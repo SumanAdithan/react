@@ -1,0 +1,111 @@
+---
+title: Server Components & Server Functions
+description: Components that run on the server, the 'use client' and 'use server' directives, and when to use them.
+---
+
+**React Server Components (RSC)** run **only on the server**, at build time or per request. Their code is never sent to the browser. They're available through frameworks such as **Next.js (App Router)** and **React Router (framework mode)**. A plain Vite SPA doesn't support them.
+
+## Server vs Client Components
+
+```jsx title="app/posts/page.jsx (Server Component, the default)"
+import db from '@/lib/db';
+import LikeButton from './LikeButton';
+
+// async component: await data directly, no useEffect needed
+export default async function PostsPage() {
+  const posts = await db.post.findMany(); // direct DB access, secrets stay on the server
+
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>
+          {post.title} <LikeButton postId={post.id} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+```jsx title="app/posts/LikeButton.jsx (Client Component)"
+'use client'; // this file and its imports are sent to the browser
+
+import { useState } from 'react';
+
+export default function LikeButton({ postId }) {
+  const [liked, setLiked] = useState(false);
+  return <button onClick={() => setLiked(!liked)}>{liked ? '❤️' : '🤍'}</button>;
+}
+```
+
+<Mermaid
+  chart="
+flowchart TD
+    subgraph Server
+        Page[PostsPage: async, reads the database]
+        List[Post list markup]
+    end
+    subgraph Browser
+        Like[LikeButton: use client, useState]
+    end
+    Page --> List
+    List --> Like
+    Page -. only rendered output is sent, no server code .-> Browser
+"
+/>
+
+| | Server Component | Client Component (`'use client'`) |
+| --- | --- | --- |
+| Runs on | Server only | Server (initial HTML) **and** browser |
+| `async`/`await` data | ✅ | ❌ (use `use()` or a library) |
+| Database, file system, secrets | ✅ | ❌ |
+| `useState`, `useEffect`, event handlers | ❌ | ✅ |
+| Browser APIs (`window`, `localStorage`) | ❌ | ✅ |
+| Adds to the JS bundle | ❌ | ✅ |
+
+**Rule of thumb:** keep components on the server by default, and add `'use client'` only to the **interactive leaves** (buttons, forms, anything using state or effects).
+
+## Server Functions (`'use server'`)
+
+Functions marked `'use server'` run on the server but can be **called from the client**, for example as a form action. The framework creates the API endpoint for you.
+
+```js title="app/actions.js"
+'use server';
+
+import db from '@/lib/db';
+import { revalidatePath } from 'next/cache';
+
+export async function createPost(formData) {
+  await db.post.create({ data: { title: formData.get('title') } });
+  revalidatePath('/posts'); // refresh the server-rendered list
+}
+```
+
+```jsx title="app/posts/new/page.jsx"
+import { createPost } from '../../actions';
+
+export default function NewPost() {
+  return (
+    <form action={createPost}>
+      <input name="title" />
+      <button>Create</button>
+    </form>
+  );
+}
+```
+
+This works with the React 19 hooks [`useActionState`, `useFormStatus` and `useOptimistic`](/docs/modern-react/react-19#actions-and-forms).
+
+<Callout type="warn" title="Security">
+  A Server Function is a **public HTTP endpoint**. Always validate the input and check that the user is authenticated and authorised inside it, just as you would in an API route.
+</Callout>
+
+## Rendering strategies
+
+| Strategy | HTML is generated | Example |
+| --- | --- | --- |
+| **CSR** (Client-Side Rendering) | In the browser | Vite SPA |
+| **SSR** (Server-Side Rendering) | On the server, per request | Next.js dynamic page |
+| **SSG** (Static Site Generation) | At build time | Docs, blogs (this site) |
+| **ISR** (Incremental Static Regeneration) | At build time, refreshed periodically | Product pages |
+| **RSC** | Server components stream UI as data; client components hydrate | Next.js App Router |

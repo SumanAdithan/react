@@ -1,0 +1,190 @@
+---
+title: Protected Routes
+description: Restrict pages to logged-in users with a guard route, Outlet and Navigate.
+---
+
+A **protected (private) route** checks a condition, usually "is the user logged in?". If the check passes it renders the page; otherwise it redirects to `/login`.
+
+This example stores the user in [Redux Toolkit](/docs/state-management/redux-toolkit). The same pattern works with [Context](/docs/hooks/use-context).
+
+<Mermaid
+  chart="
+flowchart TD
+    A[User visits /settings] --> B{Logged in?}
+    B -- Yes --> C[PrivateRoute renders Outlet]
+    C --> D[Settings page]
+    B -- No --> E[Navigate to /login and remember the requested page]
+    E --> F[User logs in]
+    F --> G[Navigate back to the requested page]
+    G --> D
+"
+/>
+
+<Steps>
+<Step>
+
+### User slice and store
+
+```js title="slices/userSlice.js"
+import { createSlice } from '@reduxjs/toolkit';
+
+const userSlice = createSlice({
+  name: 'user',
+  initialState: { user: null },
+  reducers: {
+    setUser: (state, action) => {
+      state.user = action.payload;
+    },
+    removeUser: (state) => {
+      state.user = null;
+    },
+  },
+});
+
+export const { setUser, removeUser } = userSlice.actions;
+export default userSlice.reducer;
+```
+
+```js title="store.js"
+import { configureStore } from '@reduxjs/toolkit';
+import userReducer from './slices/userSlice';
+
+const store = configureStore({
+  reducer: { userInfo: userReducer },
+});
+
+export default store;
+```
+
+</Step>
+<Step>
+
+### The guard component
+
+```jsx title="components/PrivateRoute.jsx"
+import { useSelector } from 'react-redux';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+
+const PrivateRoute = () => {
+  const user = useSelector((state) => state.userInfo.user);
+  const location = useLocation();
+
+  if (!user) {
+    // remember where the user wanted to go
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  return <Outlet />; // render the matched child route
+};
+
+export default PrivateRoute;
+```
+
+</Step>
+<Step>
+
+### Wrap protected routes
+
+```jsx title="App.jsx"
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import PrivateRoute from './components/PrivateRoute';
+import Home from './pages/Home';
+import Settings from './pages/Settings';
+import Login from './pages/Login';
+
+const App = () => (
+  <BrowserRouter>
+    <Navbar />
+    <Routes>
+      {/* everything inside requires login */}
+      <Route element={<PrivateRoute />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
+
+      {/* public */}
+      <Route path="/login" element={<Login />} />
+    </Routes>
+  </BrowserRouter>
+);
+
+export default App;
+```
+
+</Step>
+<Step>
+
+### Login and logout
+
+```jsx title="pages/Login.jsx"
+import { useDispatch } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { setUser } from '../slices/userSlice';
+
+const Login = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/';
+
+  const login = () => {
+    dispatch(setUser({ name: 'john', email: 'john@gmail.com' }));
+    navigate(from, { replace: true }); // go back to the page that was requested
+  };
+
+  return (
+    <>
+      <h1>Login</h1>
+      <button onClick={login}>Login</button>
+    </>
+  );
+};
+
+export default Login;
+```
+
+```jsx title="components/Navbar.jsx"
+import { useDispatch, useSelector } from 'react-redux';
+import { Link, useNavigate } from 'react-router-dom';
+import { removeUser } from '../slices/userSlice';
+
+const Navbar = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const user = useSelector((state) => state.userInfo.user);
+
+  const logout = () => {
+    dispatch(removeUser());
+    navigate('/login', { replace: true });
+  };
+
+  return (
+    <ul>
+      <li><Link to="/">Home</Link></li>
+      {!user && <li><Link to="/login">Login</Link></li>}
+      {user && (
+        <>
+          <li><Link to="/settings">Settings</Link></li>
+          <li><button onClick={logout}>Logout</button></li>
+        </>
+      )}
+    </ul>
+  );
+};
+
+export default Navbar;
+```
+
+</Step>
+</Steps>
+
+<Callout type="warn" title="Fixes from my original notes">
+  - In my notes `/settings` sat **outside** the `PrivateRoute`, so it wasn't protected. Here it's inside.
+  - Logout used `<Link>` without a `to` prop. Use a `<button>` for actions.
+  - The redirect now remembers the requested page (`state.from`).
+</Callout>
+
+<Callout type="info" title="Security">
+  Client-side guards only control the **UI**. Anyone can change JavaScript in their browser. Real protection must happen on the **server**: every API call verifies the user's token or session.
+</Callout>

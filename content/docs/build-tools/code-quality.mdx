@@ -1,0 +1,105 @@
+---
+title: Code Quality (ESLint, Prettier, Husky)
+description: Catch bugs with ESLint, format automatically with Prettier, and enforce both before every commit.
+---
+
+| Tool | Job |
+| --- | --- |
+| **ESLint** | Finds **bugs and bad patterns** (unused variables, rules-of-hooks violations, missing effect deps) |
+| **Prettier** | **Formats** code consistently (quotes, semicolons, line width), so style never comes up in review |
+| **Husky + lint-staged** | Runs both automatically on staged files **before each commit** |
+| **TypeScript** (`tsc --noEmit`) | Type checking |
+
+## ESLint
+
+Vite's React template already includes ESLint with **flat config** (`eslint.config.js`):
+
+```js title="eslint.config.js"
+import js from '@eslint/js';
+import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import tseslint from 'typescript-eslint';
+import pluginQuery from '@tanstack/eslint-plugin-query';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+
+export default tseslint.config(
+  { ignores: ['dist'] },
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended,
+      reactHooks.configs['recommended-latest'], // rules of hooks + exhaustive deps
+      reactRefresh.configs.vite,                // HMR-safe exports
+      jsxA11y.flatConfigs.recommended,          // accessibility checks
+      ...pluginQuery.configs['flat/recommended'],
+    ],
+    languageOptions: { globals: globals.browser },
+  }
+);
+```
+
+```bash
+npx eslint .          # check
+npx eslint . --fix    # auto-fix what it can
+```
+
+The most valuable React rules:
+
+- `react-hooks/rules-of-hooks`: hooks called conditionally (see [Rules of Hooks](/docs/hooks)).
+- `react-hooks/exhaustive-deps`: missing dependencies in `useEffect`, `useMemo` and `useCallback`.
+- React Compiler rules (in `eslint-plugin-react-hooks` v6+): flag code the [compiler](/docs/modern-react/react-compiler) can't optimise.
+
+## Prettier
+
+```bash
+npm i -D prettier eslint-config-prettier prettier-plugin-tailwindcss
+```
+
+```json title=".prettierrc"
+{
+  "singleQuote": true,
+  "semi": true,
+  "printWidth": 100,
+  "plugins": ["prettier-plugin-tailwindcss"]
+}
+```
+
+Add `eslint-config-prettier` **last** in your ESLint config to switch off ESLint rules that conflict with Prettier. Turn on **Format on Save** in VS Code with the Prettier extension.
+
+```json title="package.json"
+{
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit"
+  }
+}
+```
+
+## Pre-commit hooks: Husky + lint-staged
+
+```bash
+npm i -D husky lint-staged
+npx husky init
+```
+
+```json title="package.json"
+{
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": ["eslint --fix", "prettier --write"],
+    "*.{css,md,json}": "prettier --write"
+  }
+}
+```
+
+```bash title=".husky/pre-commit"
+npx lint-staged
+```
+
+Now every `git commit` lints and formats **only the changed files**, and the commit is blocked if ESLint finds errors.
+
+<Callout title="All-in-one alternative">
+  **Biome** replaces ESLint and Prettier with one very fast tool (`npx @biomejs/biome init`). **oxlint** is a fast ESLint-compatible linter. Both are worth considering for large codebases.
+</Callout>

@@ -1,0 +1,67 @@
+---
+title: Refs & forwardRef
+description: Pass refs through your own components, in React 19 and in older versions.
+---
+
+When a parent wants a ref to a DOM node *inside* a child component, the child has to pass the ref through.
+
+## React 19: `ref` is a prop
+
+```jsx
+function TextInput({ ref, label, ...props }) {
+  return (
+    <label>
+      {label}
+      <input ref={ref} {...props} />
+    </label>
+  );
+}
+
+function Form() {
+  const inputRef = useRef(null);
+  return (
+    <>
+      <TextInput ref={inputRef} label="Email" />
+      <button onClick={() => inputRef.current.focus()}>Focus email</button>
+    </>
+  );
+}
+```
+
+## React 18 and earlier: `forwardRef`
+
+Before React 19, `ref` wasn't a regular prop, so you had to wrap the component:
+
+```jsx
+import { forwardRef } from 'react';
+
+const TextInput = forwardRef(function TextInput({ label, ...props }, ref) {
+  return (
+    <label>
+      {label}
+      <input ref={ref} {...props} />
+    </label>
+  );
+});
+```
+
+`forwardRef` still works in React 19 but is no longer needed and will be deprecated.
+
+## Ref callbacks
+
+Instead of a ref object you can pass a **function**. React calls it with the node on mount. In React 19 it can return a cleanup function:
+
+```jsx
+<div
+  ref={(node) => {
+    if (!node) return;
+    const observer = new ResizeObserver(() => console.log(node.offsetWidth));
+    observer.observe(node);
+    return () => observer.disconnect(); // React 19 cleanup
+  }}
+/>
+```
+
+## Exposing a custom API
+
+To give the parent methods (`play()`, `reset()`) instead of the raw DOM node, use [`useImperativeHandle`](/docs/hooks/other-hooks#useimperativehandle).

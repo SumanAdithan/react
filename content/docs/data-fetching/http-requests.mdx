@@ -1,0 +1,111 @@
+---
+title: HTTP Requests
+description: Fetch data from REST APIs with fetch, handle loading and error states, and the CRUD methods.
+---
+
+## HTTP methods and CRUD
+
+| Operation | HTTP method | Example |
+| --- | --- | --- |
+| **C**reate | `POST` | `POST /users` with a JSON body |
+| **R**ead | `GET` | `GET /users`, `GET /users/1` |
+| **U**pdate | `PUT` (replace) / `PATCH` (partial) | `PUT /users/1` |
+| **D**elete | `DELETE` | `DELETE /users/1` |
+
+<Callout title="Practice API">
+  [JSONPlaceholder](https://jsonplaceholder.typicode.com) is a free fake REST API. It supports all CRUD methods and returns realistic responses, but **doesn't actually save changes**, which makes it ideal for practice.
+</Callout>
+
+## Fetching on mount
+
+```jsx
+import { useEffect, useState } from 'react';
+
+function Users() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const res = await fetch('https://jsonplaceholder.typicode.com/users');
+        // fetch only rejects on network failure; 404 or 500 must be checked manually
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const data = await res.json();
+        setUsers(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadUsers();
+  }, []); // [] = run once on mount
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+
+  return (
+    <ul>
+      {users.map((user) => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+<Callout type="warn" title="fetch doesn't throw on HTTP errors">
+  A `404` or `500` response still **resolves** successfully. Always check `res.ok` (or `res.status`). [Axios](/docs/data-fetching/axios) throws for non-2xx responses automatically.
+</Callout>
+
+## Sending data (POST, PUT, DELETE)
+
+```js
+// CREATE
+const res = await fetch('https://jsonplaceholder.typicode.com/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name, email, website }),
+});
+const created = await res.json();
+
+// UPDATE
+await fetch(`https://jsonplaceholder.typicode.com/users/${id}`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(user), // send the object itself, not { user }
+});
+
+// DELETE
+await fetch(`https://jsonplaceholder.typicode.com/users/${id}`, { method: 'DELETE' });
+```
+
+## `.then()` vs `async/await`
+
+Both styles are equivalent:
+
+```js
+// promise chain
+fetch(url)
+  .then((res) => res.json())
+  .then((data) => setUsers(data))
+  .catch((err) => setError(err.message));
+
+// async/await
+try {
+  const res = await fetch(url);
+  setUsers(await res.json());
+} catch (err) {
+  setError(err.message);
+}
+```
+
+## Best practices
+
+- Always handle **loading**, **error** and **empty** states.
+- **Cancel** requests when the component unmounts or inputs change. See [AbortController](/docs/data-fetching/abort-controller).
+- Keep base URLs in environment variables: `import.meta.env.VITE_API_URL` in Vite.
+- For real apps, use a data-fetching library such as [TanStack Query](/docs/libraries/tanstack-query) for caching, retries, deduplication and refetching.

@@ -1,0 +1,68 @@
+---
+title: Webpack Basics
+description: What a module bundler does, and how to set up webpack from scratch.
+---
+
+**Webpack** is a **module bundler**. It starts from an entry file, follows every `import` to build a **dependency graph**, and outputs optimised static files (JS, CSS, images) that browsers can load.
+
+![Modules with dependencies go into webpack and come out as static assets](/images/webpack/overview.png)
+
+<Callout title="Why learn webpack?">
+  New projects usually use [Vite](/docs/build-tools/vite), but webpack still powers many existing apps (including Create React App and older Next.js versions). Knowing its concepts (entry, output, loaders, plugins) makes any bundler easier to understand.
+</Callout>
+
+## Core concepts
+
+| Concept | Meaning |
+| --- | --- |
+| **Entry** | Where bundling starts (`./src/index.js`) |
+| **Output** | Where bundles are written and how they're named (`dist/bundle.js`) |
+| **Loaders** | Transform non-JS files (CSS, images, JSX, TS) into modules webpack understands |
+| **Plugins** | Hook into the whole build: minify, extract CSS, generate HTML, clean folders |
+| **Mode** | `development` (fast, readable), `production` (minified, optimised) or `none` |
+
+![Loaders transform .js, .png and .css files into the bundle](/images/webpack/loaders.png)
+
+## Installation
+
+```bash
+npm i webpack webpack-cli --save-dev
+```
+
+## Minimal configuration
+
+```js title="webpack.config.js"
+const path = require('path');
+
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, './dist'), // must be an absolute path
+  },
+  mode: 'none',
+};
+```
+
+```json title="package.json"
+{
+  "scripts": {
+    "build": "webpack"
+  }
+}
+```
+
+Run `npm run build` to produce `dist/bundle.js`, then load it from HTML:
+
+```html
+<script src="./dist/bundle.js"></script>
+```
+
+## What's next
+
+<Cards>
+  <Card title="Assets" href="/docs/build-tools/webpack/assets">Images and public path</Card>
+  <Card title="Styles" href="/docs/build-tools/webpack/styles">CSS, Sass and extracting CSS files</Card>
+  <Card title="Babel" href="/docs/build-tools/webpack/babel">Transpile modern JS and JSX</Card>
+  <Card title="Production" href="/docs/build-tools/webpack/production">Minify, cache-bust and clean dist</Card>
+</Cards>

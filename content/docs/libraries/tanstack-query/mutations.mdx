@@ -1,0 +1,182 @@
+---
+title: Mutations
+description: Create, update and delete data with useMutation, then refresh the cache with invalidation or optimistic updates.
+---
+
+Queries **read** data; **mutations** change it (POST, PUT, PATCH, DELETE).
+
+## useMutation
+
+```jsx
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+function AddTodo() {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: (newTodo) => api.post('/todos', newTodo).then((r) => r.data),
+    onSuccess: () => {
+      // mark every 'todos' query stale and refetch the active ones
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      setTitle('');
+    },
+    onError: (error) => alert(error.message),
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate({ title });
+      }}
+    >
+      <input value={title} onChange={(e) => setTitle(e.target.value)} />
+      <button disabled={mutation.isPending}>{mutation.isPending ? 'Adding...' : 'Add'}</button>
+      {mutation.isError && <p>{mutation.error.message}</p>}
+    </form>
+  );
+}
+```
+
+| Returned | Meaning |
+| --- | --- |
+| `mutate(variables)` | Fire the mutation (fire-and-forget) |
+| `mutateAsync(variables)` | Returns a promise. Use with `await` and `try/catch` |
+| `isPending`, `isError`, `isSuccess`, `error`, `data` | Status of the latest call |
+| `variables` | The variables of the pending mutation (useful for simple optimistic UI) |
+| `reset()` | Clear the mutation state |
+
+### Callback order
+
+```text
+onMutate → mutationFn → onSuccess | onError → onSettled
+```
+
+Callbacks can be set on `useMutation` (always run) **and** passed to `mutate(vars, { onSuccess })` (only run if the component is still mounted).
+
+## Three ways to update the cache
+
+### 1. Invalidate (simplest, always correct)
+
+```js
+onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos'] }),
+```
+
+### 2. Write the server response into the cache (saves a request)
+
+```js
+const updateTodo = useMutation({
+  mutationFn: (todo) => api.put(`/todos/${todo.id}`, todo).then((r) => r.data),
+  onSuccess: (updated) => {
+    queryClient.setQueryData(['todo', updated.id], updated);
+    queryClient.setQueryData(['todos'], (old = []) =>
+      old.map((t) => (t.id === updated.id ? updated : t))
+    );
+  },
+});
+```
+
+### 3. Optimistic update (instant UI, rolls back on error)
+
+```js
+const toggleTodo = useMutation({
+  mutationFn: (todo) => api.patch(`/todos/${todo.id}`, { done: !todo.done }),
+
+  onMutate: async (todo) => {
+    // 1. stop in-flight refetches from overwriting our optimistic value
+    await queryClient.cancelQueries({ queryKey: ['todos'] });
+    // 2. snapshot the previous value
+    const previous = queryClient.getQueryData(['todos']);
+    // 3. update the cache immediately
+    queryClient.setQueryData(['todos'], (old = []) =>
+      old.map((t) => (t.id === todo.id ? { ...t, done: !t.done } : t))
+    );
+    // 4. returned value becomes `context`
+    return { previous };
+  },
+
+  onError: (err, todo, context) => {
+    queryClient.setQueryData(['todos'], context.previous); // roll back
+  },
+
+  onSettled: () => {
+    queryClient.invalidateQueries({ queryKey: ['todos'] }); // sync with the server either way
+  },
+});
+```
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant U as UI
+    participant C as Query cache
+    participant S as Server
+    U->>C: onMutate - cancel queries, snapshot, update the cache
+    Note over U,C: The UI updates instantly
+    C->>S: mutationFn - PATCH request
+    alt success
+        S-->>C: OK
+    else error
+        S-->>C: Error
+        C->>C: onError - restore the snapshot
+    end
+    C->>S: onSettled - invalidate and refetch
+"
+/>
+
+### Simpler optimistic UI via `variables`
+
+When only one component shows the pending item, you don't need to touch the cache:
+
+```jsx
+const { mutate, isPending, variables } = useMutation({
+  mutationFn: addTodo,
+  onSettled: () => queryClient.invalidateQueries({ queryKey: ['todos'] }),
+});
+
+<ul>
+  {todos.map((t) => <li key={t.id}>{t.title}</li>)}
+  {isPending && <li style={{ opacity: 0.5 }}>{variables.title}</li>}
+</ul>;
+```
+
+## Delete example
+
+```jsx
+function DeleteButton({ id }) {
+  const queryClient = useQueryClient();
+  const { mutate, isPending } = useMutation({
+    mutationFn: () => api.delete(`/users/${id}`),
+    onSuccess: () => {
+      queryClient.setQueryData(['users'], (old = []) => old.filter((u) => u.id !== id));
+      toast.success('User deleted');
+    },
+  });
+
+  return (
+    <button disabled={isPending} onClick={() => mutate()}>
+      Delete
+    </button>
+  );
+}
+```
+
+Compare this with the [hand-written CRUD example](/docs/data-fetching/crud-example). Loading states, error handling and cache updates are each a line or two.
+
+## With React Hook Form
+
+```jsx
+const { register, handleSubmit, reset, setError } = useForm();
+
+const create = useMutation({
+  mutationFn: createUser,
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    reset();
+  },
+  onError: (e) => setError('root', { message: e.message }),
+});
+
+<form onSubmit={handleSubmit((values) => create.mutate(values))}>...</form>;
+```

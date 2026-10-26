@@ -1,0 +1,68 @@
+---
+title: Links & NavLink
+description: Navigate between routes without reloading the page.
+---
+
+## Link
+
+<Callout type="warn">
+  Don't use `<a href="/about">` for internal routes. It makes the browser **reload the page** and resets all state. Use `<Link>`.
+</Callout>
+
+```jsx
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <nav>
+        <ul>
+          <li><Link to="/">Home</Link></li>
+          <li><Link to="/about">About</Link></li>
+          <li><Link to="/contact-us">Contact</Link></li>
+        </ul>
+      </nav>
+
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact-us" element={<Contact />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+- `<Link>` uses `to` instead of `href`.
+- It renders a real `<a>` in the HTML (good for accessibility and "open in new tab"), but intercepts the click to navigate without reloading.
+- It must be inside a router (`<BrowserRouter>`).
+
+## Relative links
+
+Paths without a leading `/` are **relative to the current route**:
+
+```jsx
+// inside /books
+<Link to="new_books">New</Link>   // → /books/new_books
+<Link to="..">Back</Link>         // → parent route
+```
+
+## NavLink: active styling
+
+`<NavLink>` knows whether it matches the current URL, which is handy for navigation bars:
+
+```jsx
+import { NavLink } from 'react-router-dom';
+
+<NavLink
+  to="/about"
+  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+>
+  About
+</NavLink>;
+
+// for "/" use `end` so it isn't active on every page
+<NavLink to="/" end>Home</NavLink>;
+```
+
+By default, an active `NavLink` also gets an `active` class and `aria-current="page"`.

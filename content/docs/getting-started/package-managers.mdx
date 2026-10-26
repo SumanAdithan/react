@@ -1,0 +1,34 @@
+---
+title: npm vs Yarn vs pnpm
+description: The three common JavaScript package managers and the commands you use with each.
+---
+
+All three install packages from the same npm registry and read the same `package.json`. They differ in speed, disk usage and lockfile format.
+
+| | npm | Yarn | pnpm |
+| --- | --- | --- | --- |
+| Ships with Node.js | ✅ | via Corepack | via Corepack |
+| Lockfile | `package-lock.json` | `yarn.lock` | `pnpm-lock.yaml` |
+| Parallel installs | ✅ (since npm 7) | ✅ | ✅ |
+| Offline cache | ✅ | ✅ | ✅ (global content-addressable store) |
+| Disk usage | High (copies per project) | High (or Plug'n'Play) | Low (hard links to one store) |
+
+<Callout type="info" title="Updating my old notes">
+  My notes said npm installs packages sequentially and is less secure than Yarn. That was true for npm v4 and earlier (around 2016). Modern npm installs in parallel, uses a lockfile and runs `npm audit`. Choose based on team preference. This docs site uses **pnpm**.
+</Callout>
+
+## Command equivalents
+
+| Task | npm | Yarn | pnpm |
+| --- | --- | --- | --- |
+| Install all deps | `npm install` | `yarn` | `pnpm install` |
+| Add a package | `npm i axios` | `yarn add axios` | `pnpm add axios` |
+| Add a dev dependency | `npm i -D vitest` | `yarn add -D vitest` | `pnpm add -D vitest` |
+| Remove a package | `npm uninstall axios` | `yarn remove axios` | `pnpm remove axios` |
+| Run a script | `npm run dev` | `yarn dev` | `pnpm dev` |
+| Create a Vite app | `npm create vite@latest` | `yarn create vite` | `pnpm create vite` |
+| Run a one-off binary | `npx <cmd>` | `yarn dlx <cmd>` | `pnpm dlx <cmd>` |
+
+<Callout type="warn">
+  Use **one** package manager per project. Mixing them creates conflicting lockfiles and inconsistent installs.
+</Callout>

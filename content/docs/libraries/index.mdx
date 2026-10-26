@@ -1,0 +1,60 @@
+---
+title: Ecosystem Overview
+description: The libraries most React projects use, grouped by the problem they solve.
+---
+
+React itself only renders UI. Real apps combine it with libraries for forms, data fetching, tables, styling and more. This section covers the most widely used ones.
+
+## The modern React stack
+
+| Problem | Recommended | Alternatives | Page |
+| --- | --- | --- | --- |
+| Schema validation | **Zod** | Valibot, Yup, ArkType | [Zod](/docs/libraries/forms/zod) |
+| Forms | **React Hook Form** | TanStack Form, Formik (legacy) | [React Hook Form](/docs/libraries/forms/react-hook-form) |
+| Server state / data fetching | **TanStack Query** | SWR, RTK Query | [TanStack Query](/docs/libraries/tanstack-query) |
+| Tables and data grids | **TanStack Table** | AG Grid, MUI DataGrid | [TanStack Table](/docs/libraries/tanstack-table) |
+| Long lists | **TanStack Virtual** | react-window | [Virtualisation](/docs/libraries/tanstack-table/server-side#virtualising-large-tables) |
+| Client state | **Zustand**, Redux Toolkit | Jotai | [State Management](/docs/state-management/overview) |
+| Routing | **React Router** | TanStack Router | [Routing](/docs/routing/setup) |
+| Styling | **Tailwind CSS** | CSS Modules, styled-components | [Tailwind CSS](/docs/libraries/ui/tailwind-css) |
+| UI components | **shadcn/ui** (+ Radix / Base UI) | MUI, Mantine, Chakra UI | [shadcn/ui](/docs/libraries/ui/shadcn-ui) |
+| Animation | **Motion** (formerly Framer Motion) | React Spring, AutoAnimate | [Motion](/docs/libraries/ui/motion) |
+| Icons, toasts, dates, class names | **lucide-react, Sonner, date-fns, clsx** | react-icons, react-hot-toast, Day.js | [Utilities](/docs/libraries/ui/utilities) |
+| Internationalisation | **react-i18next** | FormatJS (react-intl), Lingui | [i18n](/docs/libraries/i18n) |
+| Charts | **Recharts** | Nivo, Chart.js, ECharts | [Charts](/docs/libraries/charts) |
+| HTTP client | fetch / **Axios** | ky, ofetch | [Axios](/docs/data-fetching/axios) |
+| Unit / component tests | **Vitest + Testing Library** | Jest | [Testing](/docs/testing/setup) |
+| End-to-end tests | **Playwright** | Cypress | [Playwright](/docs/testing/e2e-playwright) |
+| API mocking | **MSW** | | [MSW](/docs/testing/mocking-apis) |
+| Linting and formatting | **ESLint + Prettier** | Biome, oxlint | [Code Quality](/docs/build-tools/code-quality) |
+| Component workshop | **Storybook** | Ladle | |
+
+## How they fit together
+
+<Mermaid
+  chart="
+flowchart LR
+    Comp[Components]
+    UI[Tailwind + shadcn/ui + Motion]
+    RHF[React Hook Form]
+    Z[Zod schema]
+    TQ[TanStack Query]
+    API[(REST API)]
+    TT[TanStack Table + Virtual]
+    CS[useState / Zustand / Redux]
+    Comp --> UI
+    Comp --> RHF
+    RHF -- validates with --> Z
+    Comp --> TQ
+    TQ --> API
+    TQ -- parses responses with --> Z
+    TQ --> TT
+    Comp --> CS
+"
+/>
+
+A **single Zod schema** can validate the form (React Hook Form), type the data (TypeScript) and validate API responses (TanStack Query), so the same rules apply everywhere.
+
+<Callout title="Choosing libraries">
+  Before adding a dependency, check that it's **actively maintained** (recent releases), **typed** (TypeScript support), **small**, and **widely used**. And ask whether a few lines of your own code would do the job.
+</Callout>

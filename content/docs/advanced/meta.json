@@ -1,0 +1,14 @@
+{
+  "title": "Advanced Patterns",
+  "icon": "Layers",
+  "pages": [
+    "higher-order-components",
+    "performance",
+    "error-boundaries",
+    "portals",
+    "code-splitting",
+    "refs-and-forwarding",
+    "type-checking",
+    "typescript"
+  ]
+}

@@ -1,0 +1,175 @@
+---
+title: Queries in Depth
+description: Query keys, important options, dependent and parallel queries, queryOptions and custom hooks.
+---
+
+## Query keys
+
+The `queryKey` array **uniquely identifies** the data in the cache. Everything the `queryFn` depends on must be in the key. When any part of the key changes, TanStack Query fetches again, automatically.
+
+```js
+['todos']                                  // the whole list
+['todos', { status: 'done', page: 2 }]     // a filtered list (object order doesn't matter)
+['todo', 5]                                // one item
+['users', userId, 'posts']                 // nested resource
+```
+
+Keys are hierarchical, so you can invalidate a **prefix**:
+
+```js
+queryClient.invalidateQueries({ queryKey: ['todos'] }); // every query starting with 'todos'
+```
+
+### Query key factory
+
+Keep keys in one place to avoid typos:
+
+```js title="api/todoKeys.js"
+export const todoKeys = {
+  all: ['todos'],
+  lists: () => [...todoKeys.all, 'list'],
+  list: (filters) => [...todoKeys.lists(), filters],
+  details: () => [...todoKeys.all, 'detail'],
+  detail: (id) => [...todoKeys.details(), id],
+};
+```
+
+## The queryFn
+
+```js
+useQuery({
+  queryKey: ['todo', id],
+  // the context includes the key and an AbortSignal for cancellation
+  queryFn: async ({ signal }) => {
+    const res = await fetch(`/api/todos/${id}`, { signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+});
+```
+
+With axios, which throws on non-2xx responses automatically:
+
+```js
+queryFn: ({ signal }) => api.get(`/todos/${id}`, { signal }).then((r) => r.data),
+```
+
+## Important options
+
+| Option | Default | Use |
+| --- | --- | --- |
+| `enabled` | `true` | `false` stops the query from running (for example, until an id exists) |
+| `staleTime` | `0` | How long data counts as fresh. `Infinity` = never refetch automatically |
+| `gcTime` | 5 min | How long unused data stays cached |
+| `select` | | Transform or pick data. The component only re-renders if the selected result changes |
+| `retry` | `3` | Number of retries, or `(count, error) => boolean` |
+| `refetchInterval` | `false` | Poll every N ms |
+| `refetchOnWindowFocus` | `true` | Refetch stale data when the tab regains focus |
+| `placeholderData` | | Show something while the real data loads |
+| `initialData` | | Seed the cache (treated as real data) |
+
+```jsx
+// select: derive data
+const { data: doneCount } = useQuery({
+  queryKey: ['todos'],
+  queryFn: fetchTodos,
+  select: (todos) => todos.filter((t) => t.done).length,
+});
+
+// polling a job status every 2 s until it's finished
+useQuery({
+  queryKey: ['job', jobId],
+  queryFn: () => getJob(jobId),
+  refetchInterval: (query) => (query.state.data?.status === 'done' ? false : 2000),
+});
+```
+
+## Dependent queries
+
+Run a query only after another one has finished, using `enabled`:
+
+```jsx
+const { data: user } = useQuery({ queryKey: ['user', email], queryFn: () => getUserByEmail(email) });
+
+const { data: projects } = useQuery({
+  queryKey: ['projects', user?.id],
+  queryFn: () => getProjects(user.id),
+  enabled: !!user?.id, // waits until user is loaded
+});
+```
+
+## Parallel queries
+
+Several `useQuery` calls in one component run **in parallel** automatically. For a dynamic number of queries, use `useQueries`:
+
+```jsx
+import { useQueries } from '@tanstack/react-query';
+
+const results = useQueries({
+  queries: userIds.map((id) => ({
+    queryKey: ['user', id],
+    queryFn: () => getUser(id),
+  })),
+  combine: (results) => ({
+    users: results.map((r) => r.data).filter(Boolean),
+    isPending: results.some((r) => r.isPending),
+  }),
+});
+```
+
+## Reusable query definitions with `queryOptions`
+
+`queryOptions` bundles the key and function together, with full type inference. The same object works in `useQuery`, `prefetchQuery`, `getQueryData` and `invalidateQueries`.
+
+```ts title="api/users.ts"
+import { queryOptions } from '@tanstack/react-query';
+import { z } from 'zod';
+import api from './axios';
+
+const UserSchema = z.object({ id: z.number(), name: z.string(), email: z.email() });
+
+export const userQueryOptions = (id: number) =>
+  queryOptions({
+    queryKey: ['users', id],
+    queryFn: async () => UserSchema.parse((await api.get(`/users/${id}`)).data), // validated
+    staleTime: 5 * 60 * 1000,
+  });
+```
+
+```tsx
+const { data } = useQuery(userQueryOptions(id));          // data is typed as the Zod output
+queryClient.prefetchQuery(userQueryOptions(id));          // same definition
+const cached = queryClient.getQueryData(userQueryOptions(id).queryKey); // typed too
+```
+
+## Custom hooks
+
+Wrap queries in custom hooks so components don't deal with keys and URLs:
+
+```jsx title="hooks/useTodos.js"
+export function useTodos(filters) {
+  return useQuery({
+    queryKey: todoKeys.list(filters),
+    queryFn: () => api.get('/todos', { params: filters }).then((r) => r.data),
+  });
+}
+
+export function useTodo(id) {
+  return useQuery({
+    queryKey: todoKeys.detail(id),
+    queryFn: () => api.get(`/todos/${id}`).then((r) => r.data),
+    enabled: id != null,
+  });
+}
+```
+
+```jsx
+function TodoList() {
+  const { data: todos = [], isPending } = useTodos({ status: 'open' });
+  // ...
+}
+```
+
+<Callout title="Search with debounce">
+  Combine [`useDebounce`](/docs/hooks/custom-hooks#usedebounce) with the query key so you don't fire a request on every keystroke: `queryKey: ['search', debouncedTerm]`, `enabled: debouncedTerm.length > 1`.
+</Callout>

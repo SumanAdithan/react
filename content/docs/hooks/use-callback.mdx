@@ -1,0 +1,96 @@
+---
+title: useCallback
+description: Keep a function's identity stable between renders.
+---
+
+```jsx
+const fn = useCallback((arg) => doSomething(arg, a), [a]);
+```
+
+Every render creates **new function objects**. Usually that's fine, but it matters when a function is:
+
+- passed to a child wrapped in [`memo`](/docs/advanced/performance), or
+- used as a **dependency** of `useEffect`, `useMemo` or another hook.
+
+`useCallback` returns the **same function instance** until a dependency changes.
+
+## useMemo vs useCallback
+
+| | Returns | Equivalent |
+| --- | --- | --- |
+| `useMemo(() => fn, deps)` | The **value** the function returns | |
+| `useCallback(fn, deps)` | The **function itself** | `useMemo(() => fn, deps)` |
+
+Because `useCallback` returns the function, you can call it later **with arguments**. `useMemo` has already called its function and only gives you the result.
+
+## Example
+
+<Tabs items={['App.jsx', 'List.jsx']}>
+  <Tab value="App.jsx">
+    ```jsx title="App.jsx"
+    import { useCallback, useState } from 'react';
+    import List from './List';
+
+    function App() {
+      const [number, setNumber] = useState(1);
+      const [dark, setDark] = useState(false);
+
+      // ❌ a new function every render, so List's effect re-runs on every theme toggle
+      // const getItems = () => [number, number + 1, number + 2];
+
+      // ✅ same function until `number` changes
+      const getItems = useCallback(
+        (increment = 0) => [number + increment, number + 1 + increment, number + 2 + increment],
+        [number]
+      );
+
+      const theme = {
+        background: dark ? 'black' : 'white',
+        color: dark ? 'white' : 'black',
+      };
+
+      return (
+        <div style={theme}>
+          <input
+            type="number"
+            value={number}
+            onChange={(e) => setNumber(parseInt(e.target.value) || 0)}
+          />
+          <button onClick={() => setDark((curr) => !curr)}>Toggle theme</button>
+          <List getItems={getItems} />
+        </div>
+      );
+    }
+
+    export default App;
+    ```
+  </Tab>
+  <Tab value="List.jsx">
+    ```jsx title="List.jsx"
+    import { useEffect, useState } from 'react';
+
+    function List({ getItems }) {
+      const [items, setItems] = useState([]);
+
+      useEffect(() => {
+        console.log('Updating items'); // now only logs when `number` changes
+        setItems(getItems(5));
+      }, [getItems]);
+
+      return items.map((item) => <p key={item}>{item}</p>);
+    }
+
+    export default List;
+    ```
+  </Tab>
+</Tabs>
+
+What happens:
+
+1. Toggling the theme re-renders `App`.
+2. Without `useCallback`, `getItems` is a new function, so `List`'s effect sees a "changed" dependency and runs again.
+3. With `useCallback`, `getItems` keeps its identity, so the effect runs only when `number` changes.
+
+<Callout title="Don't wrap everything">
+  `useCallback` only helps if something **compares** the function: a `memo` child or a hook dependency. Wrapping every handler adds noise and no benefit. The [React Compiler](/docs/modern-react/react-compiler) can handle this automatically.
+</Callout>

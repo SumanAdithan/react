@@ -1,0 +1,103 @@
+---
+title: useReducer
+description: Manage complex state transitions with a reducer function.
+---
+
+```jsx
+const [state, dispatch] = useReducer(reducer, initialState);
+```
+
+`useReducer` is an alternative to `useState` for state with **many fields or many ways to change**. All the update logic sits in one pure function, the **reducer**:
+
+<Mermaid
+  chart="
+flowchart LR
+    UI[Event handler] -- dispatch an action --> R[reducer: current state + action]
+    R -- returns --> S[New state]
+    S -- re-render --> UI
+"
+/>
+
+It takes:
+
+1. a **reducer function** `(state, action) => newState`, and
+2. an **initial state**.
+
+It returns the current `state` and a `dispatch` function to send actions.
+
+## Counter example
+
+```jsx
+import { useReducer } from 'react';
+
+const ACTIONS = {
+  INCREMENT: 'increment',
+  DECREMENT: 'decrement',
+  RESET: 'reset',
+};
+
+function reducer(state, action) {
+  switch (action.type) {
+    case ACTIONS.INCREMENT:
+      return { count: state.count + 1 };
+    case ACTIONS.DECREMENT:
+      return { count: state.count - 1 };
+    case ACTIONS.RESET:
+      return { count: action.payload ?? 0 };
+    default:
+      throw new Error(`Unknown action: ${action.type}`);
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(reducer, { count: 1 });
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <button onClick={() => dispatch({ type: ACTIONS.DECREMENT })}>-</button>
+      <h1>{state.count}</h1>
+      <button onClick={() => dispatch({ type: ACTIONS.INCREMENT })}>+</button>
+      <button onClick={() => dispatch({ type: ACTIONS.RESET, payload: 1 })}>Reset</button>
+    </div>
+  );
+}
+```
+
+## Todo example (actions with a payload)
+
+```jsx
+function todosReducer(todos, action) {
+  switch (action.type) {
+    case 'added':
+      return [...todos, { id: crypto.randomUUID(), text: action.text, done: false }];
+    case 'toggled':
+      return todos.map((t) => (t.id === action.id ? { ...t, done: !t.done } : t));
+    case 'deleted':
+      return todos.filter((t) => t.id !== action.id);
+    default:
+      return todos;
+  }
+}
+
+const [todos, dispatch] = useReducer(todosReducer, []);
+dispatch({ type: 'added', text: 'Learn useReducer' });
+```
+
+## Reducer rules
+
+- **Pure**: no API calls, timers or randomness *inside the reducer itself*. (Generating the ID in the action creator is cleaner than `crypto.randomUUID()` above, which is shown for brevity.)
+- **Immutable**: return new objects and arrays; never mutate `state`.
+- Each action describes **what happened** (`'added'`), not how to change state.
+
+## useState vs useReducer
+
+| | `useState` | `useReducer` |
+| --- | --- | --- |
+| Best for | Independent, simple values | Related values; complex transitions |
+| Update logic lives | Spread across event handlers | Centralised in one reducer |
+| Testing | Test the component | The reducer is a pure function, easy to unit-test |
+| Debugging | | Log every action to see what happened |
+
+<Callout title="Scaling up">
+  `useReducer` + [Context](/docs/hooks/use-context) gives you a small Redux-like store. [Redux Toolkit](/docs/state-management/redux-toolkit) uses the same reducer/action ideas, with DevTools and middleware on top.
+</Callout>

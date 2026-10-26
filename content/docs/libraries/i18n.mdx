@@ -1,0 +1,109 @@
+---
+title: Internationalisation (react-i18next)
+description: Translate your app into multiple languages, with interpolation, plurals and lazy-loaded translations.
+---
+
+**react-i18next** is the most widely used i18n solution for React, built on the **i18next** framework.
+
+```bash
+npm i i18next react-i18next i18next-browser-languagedetector
+```
+
+## Setup
+
+```js title="src/i18n.js"
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+
+i18n
+  .use(LanguageDetector)      // detect from localStorage, then the browser language
+  .use(initReactI18next)
+  .init({
+    fallbackLng: 'en',
+    supportedLngs: ['en', 'ta', 'hi'],
+    interpolation: { escapeValue: false }, // React already escapes output
+    resources: {
+      en: {
+        translation: {
+          welcome: 'Welcome, {{name}}!',
+          cart: { items_one: '{{count}} item', items_other: '{{count}} items' },
+          nav: { home: 'Home', settings: 'Settings' },
+        },
+      },
+      ta: {
+        translation: {
+          welcome: 'வரவேற்கிறோம், {{name}}!',
+          cart: { items_one: '{{count}} பொருள்', items_other: '{{count}} பொருட்கள்' },
+          nav: { home: 'முகப்பு', settings: 'அமைப்புகள்' },
+        },
+      },
+    },
+  });
+
+export default i18n;
+```
+
+```jsx title="main.jsx"
+import './i18n'; // import once, before rendering
+```
+
+## Translating components
+
+```jsx
+import { useTranslation, Trans } from 'react-i18next';
+
+function Header({ user, cartCount }) {
+  const { t, i18n } = useTranslation();
+
+  return (
+    <header>
+      <h1>{t('welcome', { name: user.name })}</h1>        {/* interpolation */}
+      <p>{t('cart.items', { count: cartCount })}</p>      {/* picks _one / _other automatically */}
+      <nav>{t('nav.home')}</nav>
+
+      <select value={i18n.resolvedLanguage} onChange={(e) => i18n.changeLanguage(e.target.value)}>
+        <option value="en">English</option>
+        <option value="ta">தமிழ்</option>
+        <option value="hi">हिन्दी</option>
+      </select>
+
+      {/* translations that contain JSX */}
+      <Trans i18nKey="terms" components={{ link: <a href="/terms" /> }} />
+      {/* "terms": "I agree to the <link>terms</link>" */}
+    </header>
+  );
+}
+```
+
+## Loading translations from files
+
+For larger apps, keep translations in JSON files and load each language only when it's needed:
+
+```bash
+npm i i18next-http-backend
+```
+
+```text
+public/locales/en/translation.json
+public/locales/ta/translation.json
+```
+
+```js
+import HttpBackend from 'i18next-http-backend';
+
+i18n.use(HttpBackend).use(LanguageDetector).use(initReactI18next).init({
+  fallbackLng: 'en',
+  backend: { loadPath: '/locales/{{lng}}/{{ns}}.json' },
+});
+```
+
+Wrap the app in `<Suspense>`, because `useTranslation` suspends while a language file loads.
+
+## Tips
+
+- Use **keys that describe meaning** (`checkout.payButton`), not the English text.
+- Format numbers, dates and currency with `Intl` (or i18next's formatters), not string concatenation.
+- Set `<html lang>` and `dir="rtl"` for right-to-left languages when the language changes.
+
+Alternatives: **FormatJS / react-intl** (ICU message syntax), **Lingui** (compile-time extraction), **next-intl** (Next.js).

@@ -1,0 +1,129 @@
+---
+title: Everyday Utilities
+description: Icons (lucide-react), class names (clsx and tailwind-merge), toasts (Sonner) and dates (date-fns).
+---
+
+Small libraries you'll find in almost every React project.
+
+## Icons: lucide-react
+
+```bash
+npm i lucide-react
+```
+
+```jsx
+import { Trash2, Search, ChevronRight } from 'lucide-react';
+
+<button>
+  <Trash2 size={16} strokeWidth={2} className="text-red-600" aria-hidden="true" /> Delete
+</button>;
+```
+
+Icons are tree-shaken: only the ones you import are bundled. (This docs site uses Lucide too.) Alternatives: **react-icons** (many icon sets in one package), **Heroicons**, **Tabler Icons**.
+
+<Callout title="Accessibility">
+  Decorative icons next to text should have `aria-hidden="true"`. Icon-only buttons need a label: `<button aria-label="Delete"><Trash2 /></button>`.
+</Callout>
+
+## clsx + tailwind-merge: the `cn()` helper
+
+```bash
+npm i clsx tailwind-merge
+```
+
+- **clsx** builds class strings from conditions.
+- **tailwind-merge** resolves conflicting Tailwind classes, so the **last one wins** (`p-2 p-4` becomes `p-4`).
+
+```ts title="lib/utils.ts"
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+
+```tsx
+function Button({ className, variant = 'primary', disabled, ...props }) {
+  return (
+    <button
+      className={cn(
+        'rounded px-4 py-2 font-medium',
+        variant === 'primary' && 'bg-blue-600 text-white',
+        variant === 'ghost' && 'bg-transparent hover:bg-slate-100',
+        disabled && 'opacity-50 pointer-events-none',
+        className // overrides from the parent win: <Button className="px-8" />
+      )}
+      disabled={disabled}
+      {...props}
+    />
+  );
+}
+```
+
+## Toasts: Sonner
+
+```bash
+npm i sonner
+```
+
+```jsx
+import { Toaster, toast } from 'sonner';
+
+// once, near the root
+<Toaster position="top-right" richColors closeButton />;
+
+// anywhere, even outside components
+toast('Event created');
+toast.success('User added successfully');
+toast.error('Could not delete user');
+toast('File deleted', { action: { label: 'Undo', onClick: () => restore() } });
+
+// follows a promise: loading → success / error
+toast.promise(saveUser(data), {
+  loading: 'Saving...',
+  success: (user) => `${user.name} saved`,
+  error: 'Save failed',
+});
+```
+
+This replaces the Blueprint `Toaster` from the [CRUD example](/docs/data-fetching/crud-example). Alternative: **react-hot-toast**.
+
+## Dates: date-fns
+
+```bash
+npm i date-fns
+```
+
+```js
+import { format, formatDistanceToNow, addDays, isBefore, parseISO, differenceInDays } from 'date-fns';
+
+format(new Date(), 'dd MMM yyyy');                         // "26 Oct 2026"
+format(parseISO('2026-10-26T14:30:00Z'), 'PPpp');          // localised date and time
+formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }); // "3 hours ago"
+addDays(new Date(), 7);
+isBefore(dueDate, new Date());
+differenceInDays(end, start);
+```
+
+date-fns uses plain `Date` objects and is tree-shakable. Alternatives: **Day.js** (Moment-like API, 2 KB). Avoid **Moment.js** in new projects: it's large and in maintenance mode.
+
+<Callout title="Built-in Intl">
+  For simple formatting you may not need a library at all:
+  `new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(date)`,
+  `new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(1999)`, and
+  `new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(-1, 'day')` gives "yesterday".
+</Callout>
+
+## Other handy packages
+
+| Package | Use |
+| --- | --- |
+| `nanoid` | Tiny unique IDs (or the built-in `crypto.randomUUID()`) |
+| `@dnd-kit/core` | Accessible drag and drop (sortable lists, kanban boards) |
+| `react-dropzone` | Drag-and-drop file uploads |
+| `react-day-picker` | Date picker (used by shadcn's Calendar) |
+| `cmdk` | ⌘K command palette |
+| `usehooks-ts` | Ready-made hooks: `useLocalStorage`, `useMediaQuery`, `useDebounceValue`... |
+| `nuqs` | Type-safe URL search-param state |
+| `react-error-boundary` | [Error boundaries](/docs/advanced/error-boundaries) without classes |

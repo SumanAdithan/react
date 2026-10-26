@@ -1,0 +1,5 @@
+{
+  "title": "Routing",
+  "icon": "Route",
+  "pages": ["setup", "links", "route-parameters", "nested-routes", "navigation", "protected-routes"]
+}

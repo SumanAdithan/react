@@ -1,0 +1,74 @@
+---
+title: Handling Events
+description: Respond to clicks, typing and other user interactions.
+---
+
+React event handlers are camelCase props that take a **function**:
+
+```jsx
+function Button() {
+  function handleClick() {
+    alert('Clicked!');
+  }
+
+  return <button onClick={handleClick}>Click me</button>;
+}
+```
+
+## Pass the function, don't call it
+
+```jsx
+<button onClick={handleClick}>     // ✅ passes the function
+<button onClick={handleClick()}>   // ❌ calls it during render
+<button onClick={() => handleClick(id)}>  // ✅ wrap in an arrow to pass arguments
+```
+
+## The event object
+
+Handlers receive a **SyntheticEvent**, a cross-browser wrapper around the native event with the same API (`target`, `preventDefault()`, `stopPropagation()` and so on).
+
+```jsx
+function SearchBox() {
+  const handleChange = (e) => {
+    console.log(e.target.value); // current input text
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault(); // stop the browser's full-page form submit
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input onChange={handleChange} />
+    </form>
+  );
+}
+```
+
+## Common events
+
+| Event | Fires when |
+| --- | --- |
+| `onClick` | An element is clicked |
+| `onChange` | An input, select or textarea value changes (on **every keystroke**, unlike the DOM `change` event) |
+| `onSubmit` | A form is submitted |
+| `onKeyDown` / `onKeyUp` | A key is pressed or released |
+| `onFocus` / `onBlur` | An element gains or loses focus |
+| `onMouseEnter` / `onMouseLeave` | The pointer enters or leaves an element |
+
+## Propagation
+
+Events bubble up from child to parent. Call `e.stopPropagation()` to stop that:
+
+```jsx
+<div onClick={() => console.log('div')}>
+  <button
+    onClick={(e) => {
+      e.stopPropagation(); // the div's handler won't run
+      console.log('button');
+    }}
+  >
+    Click
+  </button>
+</div>
+```

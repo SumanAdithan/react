@@ -1,0 +1,79 @@
+---
+title: Charts (Recharts)
+description: Composable SVG charts built from React components.
+---
+
+**Recharts** builds charts out of React components: you compose `<LineChart>`, `<XAxis>`, `<Tooltip>` and friends like any other JSX.
+
+```bash
+npm i recharts
+```
+
+## Line chart
+
+```jsx
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+
+const data = [
+  { month: 'Jan', revenue: 4000, expenses: 2400 },
+  { month: 'Feb', revenue: 3000, expenses: 1398 },
+  { month: 'Mar', revenue: 5000, expenses: 3800 },
+  { month: 'Apr', revenue: 4780, expenses: 3908 },
+];
+
+function RevenueChart() {
+  return (
+    // ResponsiveContainer needs a parent with a height
+    <div style={{ width: '100%', height: 300 }}>
+      <ResponsiveContainer>
+        <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="month" />
+          <YAxis />
+          <Tooltip formatter={(value) => `₹${value.toLocaleString('en-IN')}`} />
+          <Legend />
+          <Line type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} />
+          <Line type="monotone" dataKey="expenses" stroke="#dc2626" strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+```
+
+## Other chart types
+
+Swap the chart and series components; the data shape stays the same:
+
+| Chart | Components |
+| --- | --- |
+| Bar | `<BarChart>` + `<Bar dataKey="revenue" fill="#2563eb" />` (add `stackId` to stack) |
+| Area | `<AreaChart>` + `<Area dataKey="revenue" fillOpacity={0.3} />` |
+| Pie / donut | `<PieChart>` + `<Pie data={data} dataKey="value" nameKey="name" innerRadius={60} />` |
+| Mixed | `<ComposedChart>` with `<Bar>` and `<Line>` together |
+| Scatter, radar, radial bar | `<ScatterChart>`, `<RadarChart>`, `<RadialBarChart>` |
+
+## With TanStack Query
+
+```jsx
+function SalesDashboard() {
+  const { data = [], isPending } = useQuery({ queryKey: ['sales', 'monthly'], queryFn: getMonthlySales });
+  if (isPending) return <Skeleton className="h-[300px]" />;
+  return <RevenueChart data={data} />;
+}
+```
+
+<Callout title="Design tips">
+  Start the Y axis at zero for bar charts. Use colours that are distinguishable for colour-blind users. Label axes and units. Always handle the **empty state** ("No sales yet") instead of drawing a blank chart.
+</Callout>
+
+Alternatives: **shadcn/ui Charts** (Recharts with shadcn theming), **Nivo**, **Apache ECharts** (very large datasets), **Chart.js** (`react-chartjs-2`), **visx** (low-level D3 primitives), **Tremor** (dashboard components).

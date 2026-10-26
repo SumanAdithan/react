@@ -1,0 +1,163 @@
+---
+title: TanStack Query Overview
+description: Server-state management with caching, background refetching and mutations. Setup and your first query.
+---
+
+**TanStack Query** (formerly *React Query*) manages **server state**: data that lives on a server and has to be fetched, cached, synchronised and kept fresh. It replaces most hand-written `useEffect` + `useState` fetching code.
+
+## Why you need it
+
+Hand-written fetching in `useEffect` misses a lot:
+
+| Problem | `useEffect` + `useState` | TanStack Query |
+| --- | --- | --- |
+| Loading and error state | Manual, in every component | Built in |
+| Caching | None: every mount refetches | Shared cache by query key |
+| Duplicate requests | Two components = two requests | Deduplicated |
+| Stale data | Stays stale until reload | Refetches on window focus, reconnect, interval |
+| Race conditions | Manual `AbortController` / ignore flag | Handled |
+| Retries | Manual | 3 retries with exponential backoff by default |
+| Pagination, infinite scroll | Lots of code | `placeholderData`, `useInfiniteQuery` |
+| Updating after a mutation | Refetch by hand | `invalidateQueries`, optimistic updates |
+
+<Mermaid
+  chart="
+flowchart LR
+    A[ComponentA: useQuery repo] --> Cache[(QueryClient cache)]
+    B[ComponentB: useQuery repo] --> Cache
+    Cache -- one deduplicated request --> API[(Server)]
+    API -- data --> Cache
+    Cache -. background refetch on focus or reconnect .-> API
+"
+/>
+
+## Server state vs client state
+
+| Server state | Client state |
+| --- | --- |
+| Lives on the server; your copy can go stale | Lives only in the browser |
+| Users, posts, products | Open modals, theme, form drafts |
+| **TanStack Query**, SWR, RTK Query | `useState`, Context, Zustand, Redux |
+
+<Callout title="Use both">
+  Many apps that used Redux for everything only need TanStack Query for API data plus a little `useState` or Zustand for UI state.
+</Callout>
+
+## Setup
+
+```bash
+npm i @tanstack/react-query
+npm i -D @tanstack/react-query-devtools @tanstack/eslint-plugin-query
+```
+
+```jsx title="main.jsx"
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+// create the client ONCE, outside components
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // data is fresh for 1 minute (default: 0)
+    },
+  },
+});
+
+createRoot(document.getElementById('root')).render(
+  <QueryClientProvider client={queryClient}>
+    <App />
+    <ReactQueryDevtools initialIsOpen={false} />
+  </QueryClientProvider>
+);
+```
+
+<Callout type="warn" title="Correction to my notes">
+  My original example created `new QueryClient()` **inside** the `App` component, which makes a new empty cache on every render. Create it at module level, or with `useState(() => new QueryClient())`.
+</Callout>
+
+## Your first query
+
+```jsx
+import { useQuery } from '@tanstack/react-query';
+
+async function fetchRepo(repo) {
+  const res = await fetch(`https://api.github.com/repos/${repo}`);
+  if (!res.ok) throw new Error('Repo not found'); // queryFn must THROW to signal an error
+  return res.json();
+}
+
+function Repo({ repo }) {
+  const { data, isPending, isError, error, isFetching, refetch } = useQuery({
+    queryKey: ['repo', repo],        // unique cache key
+    queryFn: () => fetchRepo(repo),  // returns a promise
+  });
+
+  if (isPending) return <h1>Loading...</h1>;
+  if (isError) return <h1>An error occurred: {error.message}</h1>;
+
+  return (
+    <div>
+      <h1>{data.full_name}</h1>
+      <p>⭐ {data.stargazers_count}</p>
+      {isFetching && <small>Refreshing in the background...</small>}
+      <button onClick={() => refetch()}>Refresh</button>
+    </div>
+  );
+}
+```
+
+Render `<Repo repo="facebook/react" />` in two places and you get **one request**. Navigate away and back, and the cached data shows **instantly** while a background refetch runs.
+
+### Status flags
+
+| Flag | Meaning |
+| --- | --- |
+| `isPending` | No data yet (first load) |
+| `isError` / `error` | The last fetch failed |
+| `isSuccess` | `data` is available |
+| `isFetching` | A request is in flight, including background refetches |
+| `isLoading` | `isPending && isFetching` (first load in progress) |
+| `isPlaceholderData` | Showing placeholder data (see [pagination](/docs/libraries/tanstack-query/pagination-and-infinite)) |
+
+## Query lifecycle
+
+<Mermaid
+  chart="
+stateDiagram-v2
+    [*] --> Fetching: first mount
+    Fetching --> Fresh: success
+    Fresh --> Stale: staleTime passes
+    Stale --> Fetching: mount, window focus, reconnect or invalidate
+    Fresh --> Inactive: no component uses it
+    Stale --> Inactive: no component uses it
+    Inactive --> Fetching: used again
+    Inactive --> [*]: gcTime passes, garbage collected
+"
+/>
+
+- **`staleTime`** (default `0`): how long data counts as fresh. Fresh data is never refetched automatically.
+- **`gcTime`** (default 5 minutes): how long *unused* data stays in the cache.
+- Stale queries refetch on **mount**, **window focus** and **network reconnect**.
+
+## v3 → v5 cheat sheet
+
+My notes used `react-query` v3. The current package is **`@tanstack/react-query`** v5:
+
+| react-query v3 (my notes) | @tanstack/react-query v5 |
+| --- | --- |
+| `import { useQuery } from 'react-query'` | `import { useQuery } from '@tanstack/react-query'` |
+| `useQuery(['key', url], fn)` | `useQuery({ queryKey: ['key', url], queryFn: fn })` (object syntax only) |
+| `isLoading` (no data yet) | `isPending` |
+| `cacheTime` | `gcTime` |
+| `keepPreviousData: true` | `placeholderData: keepPreviousData` |
+| `onSuccess` / `onError` on `useQuery` | Removed. Use effects, or global `QueryCache` callbacks |
+| `repo.err` | `error` / `isError` |
+
+## Next
+
+<Cards>
+  <Card title="Queries in depth" href="/docs/libraries/tanstack-query/queries">Keys, options, dependent and parallel queries, custom hooks</Card>
+  <Card title="Mutations" href="/docs/libraries/tanstack-query/mutations">Create, update, delete, invalidation and optimistic updates</Card>
+  <Card title="Pagination & Infinite Scroll" href="/docs/libraries/tanstack-query/pagination-and-infinite">Paginated tables and load-more lists</Card>
+  <Card title="Advanced" href="/docs/libraries/tanstack-query/advanced">Prefetching, Suspense, error handling, testing</Card>
+</Cards>

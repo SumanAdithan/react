@@ -1,0 +1,209 @@
+---
+title: Sorting, Filtering, Pagination & Selection
+description: Add the common data-grid features to a TanStack Table with controlled state.
+---
+
+Each capability is a **feature** plus, where needed, a **row model**, registered once with `tableFeatures()`. Only what you register ends up in your bundle.
+
+## Full example
+
+```tsx title="DataTable.tsx"
+import { useState } from 'react';
+import {
+  columnFilteringFeature,
+  columnVisibilityFeature,
+  createColumnHelper,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  filterFn_includesString,
+  flexRender,
+  globalFilteringFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  tableFeatures,
+  useTable,
+  type PaginationState,
+  type SortingState,
+} from '@tanstack/react-table';
+
+type User = { id: number; name: string; email: string; age: number; role: string };
+
+// each row model is registered AFTER its feature
+const features = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric },
+
+  columnFilteringFeature,
+  globalFilteringFeature,
+  filteredRowModel: createFilteredRowModel(),
+  filterFns: { includesString: filterFn_includesString },
+
+  rowPaginationFeature,
+  paginatedRowModel: createPaginatedRowModel(),
+
+  rowSelectionFeature,
+  columnVisibilityFeature,
+});
+
+const columnHelper = createColumnHelper<typeof features, User>();
+
+const columns = columnHelper.columns([
+  // checkbox column for row selection
+  columnHelper.display({
+    id: 'select',
+    header: ({ table }) => (
+      <input
+        type="checkbox"
+        checked={table.getIsAllPageRowsSelected()}
+        onChange={table.getToggleAllPageRowsSelectedHandler()}
+      />
+    ),
+    cell: ({ row }) => (
+      <input type="checkbox" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+    ),
+  }),
+  columnHelper.accessor('name', { header: 'Name' }),
+  columnHelper.accessor('email', { header: 'Email', enableSorting: false }),
+  columnHelper.accessor('age', { header: 'Age' }),
+  columnHelper.accessor('role', { header: 'Role', filterFn: 'includesString' }),
+]);
+
+export function DataTable({ data }: { data: User[] }) {
+  // controlled state: you can read it, persist it, or put it in the URL
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
+  const [rowSelection, setRowSelection] = useState({});
+
+  const table = useTable({
+    features,
+    columns,
+    data,
+    getRowId: (row) => String(row.id),
+    globalFilterFn: 'includesString',
+    state: { sorting, globalFilter, pagination, rowSelection },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
+  });
+
+  return (
+    <div>
+      {/* global search */}
+      <input
+        value={globalFilter}
+        onChange={(e) => setGlobalFilter(e.target.value)}
+        placeholder="Search all columns..."
+      />
+
+      <table>
+        <thead>
+          {table.getHeaderGroups().map((hg) => (
+            <tr key={hg.id}>
+              {hg.headers.map((header) => (
+                <th key={header.id}>
+                  {header.isPlaceholder ? null : (
+                    <button
+                      onClick={header.column.getToggleSortingHandler()}
+                      disabled={!header.column.getCanSort()}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {{ asc: ' 🔼', desc: ' 🔽' }[header.column.getIsSorted() as string] ?? null}
+                    </button>
+                  )}
+
+                  {/* per-column filter */}
+                  {header.column.getCanFilter() && header.column.id === 'role' && (
+                    <input
+                      value={(header.column.getFilterValue() as string) ?? ''}
+                      onChange={(e) => header.column.setFilterValue(e.target.value)}
+                      placeholder="Filter role"
+                    />
+                  )}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <tbody>
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id} className={row.getIsSelected() ? 'selected' : ''}>
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* pagination controls */}
+      <div>
+        <button onClick={() => table.firstPage()} disabled={!table.getCanPreviousPage()}>«</button>
+        <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>‹</button>
+        <span>
+          Page {pagination.pageIndex + 1} of {table.getPageCount()}
+        </span>
+        <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>›</button>
+        <button onClick={() => table.lastPage()} disabled={!table.getCanNextPage()}>»</button>
+
+        <select value={pagination.pageSize} onChange={(e) => table.setPageSize(Number(e.target.value))}>
+          {[10, 20, 50].map((size) => (
+            <option key={size} value={size}>
+              Show {size}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <p>{Object.keys(rowSelection).length} row(s) selected</p>
+    </div>
+  );
+}
+```
+
+## Feature reference
+
+| Feature | Row model / options | Key APIs |
+| --- | --- | --- |
+| `rowSortingFeature` | `sortedRowModel: createSortedRowModel()` | `column.getToggleSortingHandler()`, `getIsSorted()`, `getCanSort()`; column option `enableSorting`, `sortFn` |
+| `columnFilteringFeature` | `filteredRowModel: createFilteredRowModel()` | `column.setFilterValue()`, `getFilterValue()`; column option `filterFn` |
+| `globalFilteringFeature` | same filtered row model | `table.setGlobalFilter()`; option `globalFilterFn` |
+| `rowPaginationFeature` | `paginatedRowModel: createPaginatedRowModel()` | `nextPage()`, `previousPage()`, `setPageSize()`, `getPageCount()` |
+| `rowSelectionFeature` | | `row.getIsSelected()`, `getToggleSelectedHandler()`, `table.getSelectedRowModel()` |
+| `columnVisibilityFeature` | | `column.toggleVisibility()`, `getIsVisible()`; `table.getAllLeafColumns()` |
+| `columnPinningFeature` | | `column.pin('start' \| 'end')` |
+| `columnResizingFeature` / `columnSizingFeature` | | `header.getResizeHandler()`, `column.getSize()` |
+| `rowExpandingFeature` | `expandedRowModel: createExpandedRowModel()` | Sub-rows and detail panels |
+| `columnGroupingFeature` + `rowAggregationFeature` | `groupedRowModel: createGroupedRowModel()` | Group-by with sums and counts |
+
+Want every feature, like v8? Use `features: stockFeatures` and skip tree-shaking.
+
+## Reading selected rows
+
+```tsx
+const selectedUsers = table.getSelectedRowModel().rows.map((r) => r.original);
+
+<button disabled={!selectedUsers.length} onClick={() => deleteMany(selectedUsers.map((u) => u.id))}>
+  Delete selected
+</button>;
+```
+
+## Column visibility toggles
+
+```tsx
+{table.getAllLeafColumns().map((column) => (
+  <label key={column.id}>
+    <input type="checkbox" checked={column.getIsVisible()} onChange={column.getToggleVisibilityHandler()} />
+    {column.id}
+  </label>
+))}
+```
+
+<Callout title="Ready-made UI">
+  The shadcn/ui **Data Table** guide combines TanStack Table with shadcn's `Table`, `DropdownMenu` and `Checkbox` components. It's a good starting point for a polished admin table. See [shadcn/ui](/docs/libraries/ui/shadcn-ui).
+</Callout>

@@ -1,0 +1,90 @@
+---
+title: Route & Query Parameters
+description: Read dynamic URL segments with useParams and query strings with useSearchParams.
+---
+
+## Route parameters (`/user/:id`)
+
+A segment starting with `:` is a **dynamic parameter**:
+
+<Tabs items={['App.jsx', 'User.jsx']}>
+  <Tab value="App.jsx">
+    ```jsx title="App.jsx"
+    <BrowserRouter>
+      <nav>
+        <Link to="/user/1">User 1</Link>
+        <Link to="/user/2">User 2</Link>
+      </nav>
+      <Routes>
+        {/* the parameter name is "id" */}
+        <Route path="/user/:id" element={<User />} />
+      </Routes>
+    </BrowserRouter>
+    ```
+  </Tab>
+  <Tab value="User.jsx">
+    ```jsx title="User.jsx"
+    import { useParams } from 'react-router-dom';
+
+    export default function User() {
+      // destructure the parameter by the name used in the route
+      const { id } = useParams();
+
+      return (
+        <>
+          <h1>User profile page</h1>
+          <p>
+            User id is <b>{id}</b>
+          </p>
+        </>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+- Parameter values are always **strings**. Convert them with `Number(id)` if needed.
+- Use several: `/posts/:postId/comments/:commentId`.
+- Optional segment: `/products/:category?`.
+
+### Fetching data for the param
+
+```jsx
+function User() {
+  const { id } = useParams();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetch(`https://jsonplaceholder.typicode.com/users/${id}`)
+      .then((res) => res.json())
+      .then(setUser);
+  }, [id]); // re-fetch when navigating from /user/1 to /user/2
+
+  return <h1>{user?.name}</h1>;
+}
+```
+
+## Query parameters (`?q=react&page=2`)
+
+```jsx
+import { useSearchParams } from 'react-router-dom';
+
+function Products() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const q = searchParams.get('q') ?? '';
+  const page = Number(searchParams.get('page') ?? 1);
+
+  return (
+    <>
+      <input value={q} onChange={(e) => setSearchParams({ q: e.target.value, page: 1 })} />
+      <button onClick={() => setSearchParams({ q, page: page + 1 })}>Next page</button>
+    </>
+  );
+}
+```
+
+| Use | For |
+| --- | --- |
+| Route params `/users/42` | Identifying **which** resource |
+| Query params `?sort=price&page=2` | Optional filters, sorting, pagination, search. Shareable and bookmarkable |

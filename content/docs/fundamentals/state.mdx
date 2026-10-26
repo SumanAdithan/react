@@ -1,0 +1,118 @@
+---
+title: State
+description: Data that changes over time and makes the UI update automatically.
+---
+
+**State** is a component's memory: data that changes over time and is reflected in the UI. When state changes, React **re-renders** the component so the screen matches the new data.
+
+<Callout title="Why not a normal variable?">
+  A plain `let count = 0` resets on every render, and changing it does not tell React to re-render. State survives renders and triggers one when updated.
+</Callout>
+
+## State in function components (`useState`)
+
+```jsx
+import { useState } from 'react';
+
+function FavoriteColor() {
+  // useState returns [currentValue, setterFunction]
+  const [color, setColor] = useState('blue');
+
+  return (
+    <>
+      <h1>My favorite color is {color}</h1>
+      <button onClick={() => setColor('red')}>Make it red</button>
+    </>
+  );
+}
+```
+
+1. `useState('blue')` sets the **initial value** (used only on the first render).
+2. `color` is the current value for this render.
+3. `setColor(newValue)` stores the new value and **schedules a re-render**.
+
+## Multiple state variables
+
+```jsx
+function Scooter() {
+  const [color, setColor] = useState('red');
+  const [brand, setBrand] = useState('Honda');
+  const [model, setModel] = useState('Activa 6G');
+  const [year, setYear] = useState(2020);
+
+  return (
+    <>
+      <h1>My scooter</h1>
+      <p>Color: {color}</p>
+      <p>Brand: {brand}</p>
+      <p>Model: {model}</p>
+      <p>Year: {year}</p>
+    </>
+  );
+}
+```
+
+## State as an object
+
+Group related values into one object:
+
+```jsx
+const [scooter, setScooter] = useState({
+  color: 'red',
+  brand: 'Honda',
+  model: 'Activa 6G',
+  year: 2020,
+});
+
+return <p>Color: {scooter.color}</p>;
+```
+
+To update one field without losing the others, see [Updating Objects & Arrays](/docs/fundamentals/updating-objects-and-arrays).
+
+## Updating based on the previous value
+
+When the new state depends on the old one, pass an **updater function**:
+
+```jsx
+const [count, setCount] = useState(0);
+
+// ❌ all three read the same stale `count` → ends at 1
+setCount(count + 1);
+setCount(count + 1);
+setCount(count + 1);
+
+// ✅ each updater receives the latest pending value → ends at 3
+setCount((prev) => prev + 1);
+setCount((prev) => prev + 1);
+setCount((prev) => prev + 1);
+```
+
+<Callout title="State updates are asynchronous and batched">
+  Calling `setX` doesn't change `x` immediately. It schedules a re-render, and React **batches** several updates from the same event into one render. `console.log(x)` right after `setX(...)` still prints the old value.
+</Callout>
+
+## State in class components (legacy)
+
+```jsx
+import React from 'react';
+
+class Car extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { color: 'red' };
+  }
+
+  render() {
+    return (
+      <>
+        <h1>My car color is {this.state.color}</h1>
+        <button onClick={() => this.setState({ color: 'blue' })}>Change</button>
+      </>
+    );
+  }
+}
+```
+
+Unlike `useState`, class `setState` **merges** the object you pass into the existing state.
+
+More detail: [useState hook](/docs/hooks/use-state).

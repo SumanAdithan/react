@@ -1,0 +1,183 @@
+---
+title: Redux Toolkit
+description: Set up a store, create slices, connect them to React and read or update state.
+---
+
+**Redux Toolkit (RTK)** is the official, recommended way to write Redux. It removes most of the boilerplate of classic Redux (action type constants, switch statements, manual immutable updates).
+
+## Installation
+
+```bash
+npm install @reduxjs/toolkit react-redux
+# or
+yarn add @reduxjs/toolkit react-redux
+```
+
+## Folder structure
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <Folder name="slices" defaultOpen>
+      <File name="todoSlice.js" />
+    </Folder>
+    <File name="store.js" />
+    <File name="main.jsx" />
+    <File name="App.jsx" />
+  </Folder>
+</Files>
+
+<Steps>
+<Step>
+
+### Create a slice
+
+A **slice** bundles the initial state, the reducers and the generated action creators for one feature.
+
+```js title="slices/todoSlice.js"
+import { createSlice } from '@reduxjs/toolkit';
+
+const initialState = [];
+
+const todoSlice = createSlice({
+  name: 'todo',          // prefix for action types: "todo/addTodo"
+  initialState,
+  reducers: {
+    addTodo(state, action) {
+      // looks like mutation, but Immer turns it into an immutable update
+      state.push(action.payload);
+    },
+    deleteTodo(state, action) {
+      const deleteIndex = action.payload;
+      // or return a brand-new state
+      return state.filter((_, index) => index !== deleteIndex);
+    },
+  },
+});
+
+// action creators, generated automatically. Dispatch these from components
+export const { addTodo, deleteTodo } = todoSlice.actions;
+
+// the reducer, registered in the store
+export default todoSlice.reducer;
+```
+
+<Callout title="Immer">
+  Inside `createSlice` reducers you can either **mutate** the draft (`state.push(...)`) **or return** a new value, but not both in the same reducer.
+</Callout>
+
+</Step>
+<Step>
+
+### Create the store
+
+```js title="store.js"
+import { configureStore } from '@reduxjs/toolkit';
+import todoReducer from './slices/todoSlice';
+
+export const store = configureStore({
+  reducer: {
+    todo: todoReducer, // state.todo is managed by todoReducer
+  },
+  // devTools defaults to true in development; set false to disable
+});
+```
+
+</Step>
+<Step>
+
+### Provide the store to React
+
+Wrap the app in `<Provider>` at the top level (`main.jsx`, or `index.js` in CRA):
+
+```jsx title="main.jsx"
+import { createRoot } from 'react-dom/client';
+import { Provider } from 'react-redux';
+import { store } from './store';
+import App from './App';
+
+createRoot(document.getElementById('root')).render(
+  <Provider store={store}>
+    <App />
+  </Provider>
+);
+```
+
+</Step>
+<Step>
+
+### Read and update state in components
+
+- `useSelector(selector)` reads data from the store and re-renders when **that** data changes.
+- `useDispatch()` returns the `dispatch` function, which you call with actions.
+
+```jsx title="App.jsx"
+import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { addTodo, deleteTodo } from './slices/todoSlice';
+
+function App() {
+  const [text, setText] = useState('');
+
+  // read: state is { todo: [...] }
+  const todos = useSelector((state) => state.todo);
+  // write
+  const dispatch = useDispatch();
+
+  const handleAdd = () => {
+    if (!text.trim()) return;
+    dispatch(addTodo(text)); // → { type: 'todo/addTodo', payload: text }
+    setText('');
+  };
+
+  return (
+    <div>
+      <h1>To-do list</h1>
+      <input value={text} onChange={(e) => setText(e.target.value)} />
+      <button onClick={handleAdd}>Add</button>
+
+      <ul>
+        {todos.map((todo, index) => (
+          <li key={index}>
+            {todo}
+            <button onClick={() => dispatch(deleteTodo(index))}>❌</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
+```
+
+</Step>
+</Steps>
+
+<Mermaid
+  chart="
+flowchart LR
+    C[Component] -- dispatch addTodo --> S[Store]
+    S --> R[todoSlice reducer]
+    R -- new state --> S
+    S -- useSelector re-renders --> C
+"
+/>
+
+## Selector tips
+
+```js
+// ✅ select the smallest piece you need
+const count = useSelector((state) => state.todo.length);
+
+// ❌ returns a new array every time, so the component re-renders on EVERY store update
+const done = useSelector((state) => state.todo.filter((t) => t.done));
+// ✅ memoise derived data with createSelector from @reduxjs/toolkit
+```
+
+## Redux DevTools
+
+Install the **Redux DevTools** browser extension to inspect every dispatched action, see state diffs and "time-travel" between states. `configureStore` connects to it automatically in development.
+
+## RTK Query
+
+Redux Toolkit includes **RTK Query**, a data-fetching and caching layer similar to [TanStack Query](/docs/libraries/tanstack-query). If you already use Redux, it's a good fit for API calls.

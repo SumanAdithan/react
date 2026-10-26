@@ -1,0 +1,103 @@
+---
+title: Setup (Vitest + Testing Library)
+description: Configure Vitest, jsdom and React Testing Library in a Vite project.
+---
+
+The standard React testing stack:
+
+| Tool | Role |
+| --- | --- |
+| **Vitest** | Test runner and assertion library (Jest-compatible API, native to Vite) |
+| **jsdom** | Simulates a browser DOM in Node.js |
+| **@testing-library/react** | Renders components and queries them the way a user would |
+| **@testing-library/user-event** | Simulates realistic user interactions |
+| **@testing-library/jest-dom** | Extra matchers such as `toBeInTheDocument()` and `toHaveValue()` |
+
+<AIImage
+  src="/images/ai/testing-trophy.png"
+  alt="The testing trophy: static analysis, unit, integration and end-to-end tests"
+  caption="Most of your tests should be integration (component) tests, plus a few unit and end-to-end tests."
+  prompt="A stylised trophy shape built from four stacked horizontal layers, widest in the middle. From bottom to top: a thin base 'Static', a narrow layer 'Unit', the widest and brightest layer 'Integration', and a small top cup 'E2E'. Small icons beside each layer: a linter checkmark, a single gear, connected gears, a browser window. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+## Installation
+
+```bash
+npm i -D vitest jsdom @testing-library/react @testing-library/dom @testing-library/user-event @testing-library/jest-dom
+# or
+yarn add -D vitest jsdom @testing-library/react @testing-library/dom @testing-library/user-event @testing-library/jest-dom
+```
+
+## Configuration
+
+<Tabs items={['vite.config.js', 'setupTest.js', 'package.json']}>
+  <Tab value="vite.config.js">
+    ```js title="vite.config.js"
+    import { defineConfig } from 'vite';
+    import react from '@vitejs/plugin-react';
+
+    export default defineConfig({
+      plugins: [react()],
+      test: {
+        environment: 'jsdom',       // browser-like DOM
+        globals: true,              // use test/expect/vi without importing them
+        setupFiles: './setupTest.js',
+      },
+    });
+    ```
+  </Tab>
+  <Tab value="setupTest.js">
+    ```js title="setupTest.js"
+    import { afterEach } from 'vitest';
+    import { cleanup } from '@testing-library/react';
+    import '@testing-library/jest-dom/vitest'; // adds toBeInTheDocument() and friends
+
+    // unmount rendered components after each test
+    afterEach(() => {
+      cleanup();
+    });
+    ```
+  </Tab>
+  <Tab value="package.json">
+    ```json title="package.json"
+    {
+      "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "lint": "eslint .",
+        "preview": "vite preview",
+        "test": "vitest"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Running tests
+
+```bash
+npm test                 # watch mode: re-runs on file changes
+npx vitest run           # run once (CI)
+npx vitest --coverage    # coverage report (needs @vitest/coverage-v8)
+npx vitest --ui          # browser UI (needs @vitest/ui)
+```
+
+## Where to put tests
+
+Vitest picks up files named `*.test.jsx` / `*.spec.jsx` anywhere, or files inside a `__tests__` folder:
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <Folder name="components" defaultOpen>
+      <File name="Button.jsx" />
+      <File name="Button.test.jsx" />
+    </Folder>
+    <Folder name="__tests__">
+      <File name="Login.test.jsx" />
+    </Folder>
+  </Folder>
+</Files>
+
+<Callout title="Create React App / Jest">
+  CRA came preconfigured with **Jest** + Testing Library: run `npm test`, put tests in `__tests__/` or name them `*.test.js`. The test code is almost identical. Replace `vi.fn()` with `jest.fn()`, and you don't need the Vite config.
+</Callout>

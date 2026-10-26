@@ -1,13 +1,64 @@
 ---
-title: Hello World
-description: Your first document
+title: React Handbook
+description: A structured guide to React, from your first component to testing, tooling and React 19.
+icon: BookOpen
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+This handbook turns my React learning notes into structured documentation. Each page explains a concept, shows a working example and points out common mistakes.
 
-## What is Next?
+<AIImage
+  src="/images/ai/handbook-hero.png"
+  alt="Illustrated React learning roadmap"
+  prompt="A winding learning path rising from bottom left to top right, made of glowing stepping-stone platforms. Each platform holds a small icon: a code bracket, a hook, a road sign, a cloud with arrows, a database cylinder, a test tube, a wrench, a rocket. A large softly glowing React-style atom orbit floats at the summit. No text. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+<Callout title="Versions used">
+  Examples target **React 19**, **React Router 7**, **Redux Toolkit 2**, **TanStack Query 5** and **Vitest**. Where an older API appears in my original notes (Create React App, `react-query` v3, PropTypes and similar), the page says so and shows the modern replacement.
+</Callout>
+
+## Learning path
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
+  <Card title="1. Getting Started" href="/docs/getting-started/introduction">
+    What React is, how to set up a project and how a project is organised.
+  </Card>
+  <Card title="2. Fundamentals" href="/docs/fundamentals/jsx">
+    JSX, components, props, state, events, lists, styling and forms.
+  </Card>
+  <Card title="3. Hooks" href="/docs/hooks">
+    useState, useEffect, useRef, useMemo, useCallback, useContext, useReducer and custom hooks.
+  </Card>
+  <Card title="4. Advanced Patterns" href="/docs/advanced/higher-order-components">
+    HOCs, memoization, error boundaries, portals, code splitting and TypeScript.
+  </Card>
+  <Card title="5. Routing" href="/docs/routing/setup">
+    Client-side routing with React Router: params, nesting, navigation and protected routes.
+  </Card>
+  <Card title="6. Data Fetching" href="/docs/data-fetching/http-requests">
+    REST basics: CRUD with fetch, axios instances and cancelling requests.
+  </Card>
+  <Card title="7. State Management" href="/docs/state-management/overview">
+    Prop drilling, Context, Redux Toolkit, async thunks and lighter alternatives.
+  </Card>
+  <Card title="8. Ecosystem & Libraries" href="/docs/libraries">
+    Zod, React Hook Form, TanStack Query, TanStack Table, Tailwind, shadcn/ui, Motion, i18n and charts.
+  </Card>
+  <Card title="9. Testing" href="/docs/testing/setup">
+    Vitest and React Testing Library, API mocking with MSW, and end-to-end tests with Playwright.
+  </Card>
+  <Card title="10. Build Tools" href="/docs/build-tools/vite">
+    Vite, ESLint and Prettier, and how webpack bundles JavaScript, CSS and assets.
+  </Card>
+  <Card title="11. Deployment" href="/docs/deployment/hosting">
+    Building for production and hosting options.
+  </Card>
+  <Card title="12. Modern React" href="/docs/modern-react/react-19">
+    React 19 features, Server Components and the React Compiler.
+  </Card>
 </Cards>
+
+## How to read these pages
+
+- Read **Fundamentals** and **Hooks** in order. Later sections build on them.
+- Copy the code blocks into a Vite project (see [Installation](/docs/getting-started/installation)) and change them as you go.
+- Each section has ⚠️ callouts for common mistakes and outdated patterns you will meet in tutorials.

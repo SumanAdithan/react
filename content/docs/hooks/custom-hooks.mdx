@@ -1,0 +1,121 @@
+---
+title: Custom Hooks
+description: Extract and reuse stateful logic across components.
+---
+
+A **custom hook** is a function whose name starts with `use` and that calls other hooks. It lets you reuse **logic** (not UI) between components.
+
+<Callout>
+  Each component that calls a custom hook gets its **own independent state**. Hooks share logic, not data. To share data, use [Context](/docs/hooks/use-context) or a store.
+</Callout>
+
+## useFetch
+
+```jsx title="hooks/useFetch.js"
+import { useEffect, useState } from 'react';
+
+export function useFetch(url) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    fetch(url, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(setData)
+      .catch((err) => {
+        if (err.name !== 'AbortError') setError(err.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [url]);
+
+  return { data, error, loading };
+}
+```
+
+```jsx
+function Users() {
+  const { data: users, loading, error } = useFetch('https://jsonplaceholder.typicode.com/users');
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+  return users.map((u) => <p key={u.id}>{u.name}</p>);
+}
+```
+
+## useLocalStorage
+
+```jsx title="hooks/useLocalStorage.js"
+import { useEffect, useState } from 'react';
+
+export function useLocalStorage(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    const stored = localStorage.getItem(key);
+    return stored !== null ? JSON.parse(stored) : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue];
+}
+
+// usage: same API as useState, but persisted
+const [theme, setTheme] = useLocalStorage('theme', 'light');
+```
+
+## useToggle
+
+```jsx
+import { useCallback, useState } from 'react';
+
+export function useToggle(initial = false) {
+  const [on, setOn] = useState(initial);
+  const toggle = useCallback(() => setOn((v) => !v), []);
+  return [on, toggle];
+}
+
+const [isOpen, toggleOpen] = useToggle();
+```
+
+## useDebounce
+
+```jsx
+import { useEffect, useState } from 'react';
+
+export function useDebounce(value, delay = 500) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id); // reset the timer on every keystroke
+  }, [value, delay]);
+
+  return debounced;
+}
+
+// search only after the user stops typing for 500 ms
+const debouncedQuery = useDebounce(query);
+useEffect(() => {
+  if (debouncedQuery) search(debouncedQuery);
+}, [debouncedQuery]);
+```
+
+## Guidelines
+
+- The name **must** start with `use`, so React and the linter apply the [rules of hooks](/docs/hooks).
+- Return whatever shape is convenient: a value, a `[value, setter]` tuple, or an object.
+- If a function doesn't call any hooks, it's a plain utility, so don't prefix it with `use`.
+- Libraries such as **usehooks-ts** and **react-use** collect many ready-made hooks.

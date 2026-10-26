@@ -1,0 +1,77 @@
+---
+title: Children & Composition
+description: Build flexible components by nesting JSX inside them with the children prop.
+---
+
+Anything you put **between** a component's opening and closing tags is passed to it as the special `children` prop.
+
+```jsx
+function Card({ title, children }) {
+  return (
+    <div className="card">
+      <h2>{title}</h2>
+      <div className="card-body">{children}</div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Card title="Profile">
+      <p>Name: John</p>
+      <button>Edit</button>
+    </Card>
+  );
+}
+```
+
+`Card` does not need to know what it wraps. This is **composition**, and React's main way to reuse UI (React does not use class inheritance between components).
+
+## Layout components
+
+```jsx
+function Layout({ children }) {
+  return (
+    <>
+      <Navbar />
+      <main>{children}</main>
+      <Footer />
+    </>
+  );
+}
+```
+
+## Multiple "slots"
+
+When a component needs more than one insertion point, pass JSX through named props:
+
+```jsx
+function PageHeader({ left, right }) {
+  return (
+    <header className="flex justify-between">
+      <div>{left}</div>
+      <div>{right}</div>
+    </header>
+  );
+}
+
+<PageHeader left={<Logo />} right={<UserMenu />} />;
+```
+
+## Composition avoids prop drilling
+
+Instead of passing data down through components that don't use it, pass the *finished element* down:
+
+```jsx
+// ❌ Container and Users only forward `user`
+<Container user={user} />
+
+// ✅ the component that has the data renders the leaf directly
+<Container>
+  <Users>
+    <UserAvatar user={user} />
+  </Users>
+</Container>
+```
+
+Try composition before reaching for [Context](/docs/hooks/use-context).

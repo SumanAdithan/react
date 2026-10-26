@@ -1,0 +1,102 @@
+---
+title: Mocking APIs (MSW)
+description: Intercept network requests in tests with Mock Service Worker.
+---
+
+Tests shouldn't call real APIs: those are slow, flaky, and may need credentials. **Mock Service Worker (MSW)** intercepts requests at the network level, so your components use their normal `fetch` or `axios` code and get mocked responses.
+
+```bash
+npm i -D msw
+```
+
+<Callout type="warn" title="MSW v2 syntax">
+  My notes used MSW v1 (`rest.get(..., (req, res, ctx) => res(ctx.json(...)))`). MSW v2 replaced this with `http` and `HttpResponse`, as shown below.
+</Callout>
+
+## Define handlers and a server
+
+```js title="mocks/handlers.js"
+import { http, HttpResponse } from 'msw';
+
+export const handlers = [
+  http.get('/api/data', () => {
+    return HttpResponse.json({ message: 'Hello API' });
+  }),
+
+  http.get('https://jsonplaceholder.typicode.com/users', () => {
+    return HttpResponse.json([
+      { id: 1, name: 'John' },
+      { id: 2, name: 'Jane' },
+    ]);
+  }),
+];
+```
+
+```js title="mocks/server.js"
+import { setupServer } from 'msw/node';
+import { handlers } from './handlers';
+
+export const server = setupServer(...handlers);
+```
+
+## Start it in the test setup
+
+```js title="setupTest.js"
+import { afterAll, afterEach, beforeAll } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
+import { server } from './src/mocks/server';
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => {
+  server.resetHandlers(); // undo per-test overrides
+  cleanup();
+});
+afterAll(() => server.close());
+```
+
+## Testing a component that fetches
+
+```jsx
+import { render, screen } from '@testing-library/react';
+import Users from '../Users';
+
+test('renders users from the API', async () => {
+  render(<Users />);
+  expect(await screen.findByText('John')).toBeInTheDocument();
+  expect(screen.getByText('Jane')).toBeInTheDocument();
+});
+```
+
+## Overriding a handler in one test
+
+```jsx
+import { http, HttpResponse } from 'msw';
+import { server } from '../mocks/server';
+
+test('shows an error when the API fails', async () => {
+  server.use(
+    http.get('https://jsonplaceholder.typicode.com/users', () => {
+      return new HttpResponse(null, { status: 500 });
+    })
+  );
+
+  render(<Users />);
+  expect(await screen.findByText(/error/i)).toBeInTheDocument();
+});
+```
+
+## Mocking modules instead
+
+For simple cases you can mock a module directly with Vitest:
+
+```js
+import { vi } from 'vitest';
+import * as api from '../api/users';
+
+vi.spyOn(api, 'getUsers').mockResolvedValue([{ id: 1, name: 'John' }]);
+```
+
+<Callout>
+  MSW also works **in the browser** during development (`setupWorker` from `msw/browser`), so you can build UI before the backend exists.
+</Callout>

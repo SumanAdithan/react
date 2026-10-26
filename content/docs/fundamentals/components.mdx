@@ -1,0 +1,148 @@
+---
+title: Components
+description: Functional and class components, and how to split components into separate files.
+---
+
+A **component** is a reusable piece of UI. In modern React, a component is a JavaScript function that returns JSX.
+
+<AIImage
+  src="/images/ai/components-ui-breakdown.png"
+  alt="A web page exploded into nested component blocks"
+  caption="A UI is a tree of components. Identical pieces, like product cards, are one reusable component."
+  prompt="An e-commerce web page shown in an exploded isometric view: the full page at the back, and in front of it its parts pulled apart as floating translucent layers: a navbar bar, a sidebar, a grid of three identical product cards, and a footer. Thin dotted lines connect each layer back to where it sits on the page. The three product cards are the same colour to show reuse. Labels on the layers: 'Navbar', 'Sidebar', 'ProductCard', 'Footer'. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+<Mermaid
+  chart="
+flowchart TD
+    App --> Navbar
+    App --> Page
+    App --> Footer
+    Page --> Sidebar
+    Page --> ProductList
+    ProductList --> C1[ProductCard]
+    ProductList --> C2[ProductCard]
+    ProductList --> C3[ProductCard]
+"
+/>
+
+## Functional components
+
+```jsx
+function Car() {
+  return <h2>Hi, I am a car</h2>;
+}
+
+function Garage() {
+  return (
+    <>
+      <h1>Who lives in my garage?</h1>
+      <Car />
+    </>
+  );
+}
+```
+
+You can also write them as arrow functions:
+
+```jsx
+const Car = () => <h2>Hi, I am a car</h2>;
+```
+
+## Class components (legacy)
+
+Before React 16.8, only class components could hold state and use lifecycle methods. **Hooks** (introduced in 16.8) gave function components the same abilities, so class components are now legacy.
+
+```jsx
+import React from 'react';
+
+// a class component must extend React.Component
+class Apple extends React.Component {
+  // and implement render(), which returns JSX
+  render() {
+    return <h2>I'm an Apple!</h2>;
+  }
+}
+
+export default Apple;
+```
+
+| | Function component | Class component |
+| --- | --- | --- |
+| State | `useState`, `useReducer` hooks | `this.state` / `this.setState` |
+| Side effects | `useEffect` | `componentDidMount`, `componentDidUpdate`, `componentWillUnmount` |
+| `this` keyword | Not needed | Required everywhere |
+| Status | ✅ Recommended | Legacy (still supported; needed only for [Error Boundaries](/docs/advanced/error-boundaries)) |
+
+<Callout title="Correction to my notes">
+  My notes called class components "stateful" and function components "stateless". That was true before hooks. Today function components can do everything class components can, apart from error boundaries.
+</Callout>
+
+## Using components from different files
+
+Keep one component per file and use ES module `export` / `import`.
+
+<Tabs items={['Car.jsx', 'Garage.jsx', 'main.jsx']}>
+  <Tab value="Car.jsx">
+    ```jsx title="src/components/Car.jsx"
+    function Car() {
+      return <h2>Hi, I am a car</h2>;
+    }
+
+    export default Car;
+    ```
+  </Tab>
+  <Tab value="Garage.jsx">
+    ```jsx title="src/components/Garage.jsx"
+    // the .js/.jsx extension can be omitted
+    import Car from './Car';
+
+    function Garage() {
+      return (
+        <>
+          <h1>Who lives in my garage?</h1>
+          <Car />
+        </>
+      );
+    }
+
+    export default Garage;
+    ```
+  </Tab>
+  <Tab value="main.jsx">
+    ```jsx title="src/main.jsx"
+    import { StrictMode } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import Garage from './components/Garage';
+
+    createRoot(document.getElementById('root')).render(
+      <StrictMode>
+        <Garage />
+      </StrictMode>
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Default vs named exports
+
+```jsx
+// default export: one per file, imported with ANY name
+export default Car;
+import Vehicle from './Car'; // works, but keep the names the same for clarity
+
+// named exports: many per file, imported by exact name (rename with `as`)
+export function Car() {}
+export function Bike() {}
+import { Car, Bike as Cycle } from './vehicles';
+```
+
+<Callout title="Naming tip">
+  The file name and the component name *can* differ, but keep them the same (`Car.jsx` → `Car`). It makes the codebase much easier to search.
+</Callout>
+
+## Rules for components
+
+- **Names must start with a capital letter** (`Car`, not `car`).
+- **Components must be pure during render.** Given the same props and state, they return the same JSX and do not change anything outside themselves. Side effects go in event handlers or [effects](/docs/hooks/use-effect).
+- **Never define a component inside another component.** It is re-created on every render, so its state resets each time.

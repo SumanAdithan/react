@@ -1,0 +1,84 @@
+---
+title: Vite
+description: The fast, modern build tool and dev server for React projects.
+---
+
+**Vite** (French for "quick") is the recommended build tool for React SPAs. It replaced Create React App as the default way to start a React project.
+
+## Why Vite is fast
+
+| | Webpack (CRA) | Vite |
+| --- | --- | --- |
+| Dev server start | Bundles the **whole app** first | Starts instantly and serves **native ES modules** on demand |
+| Hot updates | Re-bundles the affected chunk | Replaces only the changed module |
+| Dependency pre-bundling | Babel/webpack | **esbuild** (written in Go, 10–100× faster) |
+| Production build | webpack | Rollup / Rolldown (tree-shaking, code splitting) |
+
+## Create a project
+
+```bash
+npm create vite@latest my-app -- --template react      # or react-ts
+yarn create vite my-app --template react
+pnpm create vite my-app --template react
+```
+
+Run `npm create vite@latest` with no arguments for interactive prompts.
+
+## Scripts
+
+```bash
+npm run dev       # dev server on http://localhost:5173
+npm run build     # production build into dist/
+npm run preview   # serve dist/ locally to test the build
+```
+
+## Environment variables
+
+Create `.env` files at the project root. Only variables prefixed with **`VITE_`** are exposed to client code:
+
+```bash title=".env.local"
+VITE_API_URL=https://api.example.com
+SECRET_KEY=abc   # NOT exposed (no VITE_ prefix)
+```
+
+```js
+const api = import.meta.env.VITE_API_URL;
+import.meta.env.MODE;  // 'development' | 'production'
+import.meta.env.DEV;   // boolean
+```
+
+<Callout type="warn">
+  Everything in `import.meta.env.VITE_*` is **embedded in the JavaScript bundle** and visible to anyone. Never put secrets there. CRA used `process.env.REACT_APP_*` instead.
+</Callout>
+
+## Common configuration
+
+```js title="vite.config.js"
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'node:path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    // import Button from '@/components/Button'
+    alias: { '@': path.resolve(__dirname, './src') },
+  },
+  server: {
+    port: 3000,
+    // forward /api requests to a backend during development (avoids CORS)
+    proxy: { '/api': 'http://localhost:8080' },
+  },
+});
+```
+
+## Static assets
+
+```jsx
+import logo from './assets/logo.svg';      // processed: hashed filename
+<img src={logo} alt="logo" />
+
+<img src="/favicon.ico" />                  // from public/: served as-is
+```
+
+CSS, CSS Modules, Sass (after `npm i -D sass`), PostCSS and JSON imports work without extra configuration. Compare that with the [webpack setup](/docs/build-tools/webpack).

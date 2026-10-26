@@ -1,0 +1,93 @@
+---
+title: Styling
+description: Inline styles, global stylesheets, CSS Modules and other styling approaches.
+---
+
+## Inline styles
+
+The `style` prop takes a **JavaScript object** with camelCase property names:
+
+```jsx
+const Header = () => {
+  const myStyle = {
+    color: 'red',
+    backgroundColor: 'blue', // background-color → backgroundColor
+    fontSize: 24,            // numbers get "px" added automatically
+  };
+
+  return (
+    <>
+      {/* outer {} = JS expression, inner {} = object */}
+      <h1 style={{ color: 'red', backgroundColor: 'blue' }}>Hello styling</h1>
+      <p style={myStyle}>Add a little style</p>
+    </>
+  );
+};
+```
+
+Inline styles are fine for dynamic values but can't do `:hover`, media queries or animations.
+
+## Global CSS stylesheet
+
+Importing a `.css` file applies it **globally** to the whole app:
+
+```css title="Header.css"
+body {
+  background: #282c34;
+  color: #fff;
+  padding: 40px;
+  font-family: sans-serif;
+  text-align: center;
+}
+```
+
+```jsx title="Header.jsx"
+import './Header.css';
+```
+
+<Callout type="warn">
+  Global class names can collide. A `.title` in one file affects every `.title` in the app.
+</Callout>
+
+## CSS Modules (scoped CSS)
+
+Name the file `*.module.css`. The bundler renames each class to a unique name, so styles apply only to the component that imports them.
+
+```css title="Header.module.css"
+.bigBlue {
+  color: dodgerblue;
+  padding: 40px;
+  font-family: sans-serif;
+  text-align: center;
+}
+```
+
+```jsx title="Header.jsx"
+import styles from './Header.module.css';
+
+const Header = () => <h1 className={styles.bigBlue}>Hello world</h1>;
+// rendered as: <h1 class="Header_bigBlue__x7a2k">
+```
+
+<Callout title="File name">
+  The suffix must be lowercase `.module.css`; `Header.Module.css` won't be treated as a module on case-sensitive systems.
+</Callout>
+
+## Conditional class names
+
+```jsx
+<button className={`btn ${isActive ? 'btn-active' : ''}`}>Save</button>
+
+// or with the tiny `clsx` library
+import clsx from 'clsx';
+<button className={clsx('btn', isActive && 'btn-active', { 'btn-disabled': disabled })}>Save</button>
+```
+
+## Other popular approaches
+
+| Approach | Example | Notes |
+| --- | --- | --- |
+| **Tailwind CSS** | `<h1 className="text-3xl font-bold text-blue-600">` | Utility classes; very popular with React (this docs site uses it) |
+| **Sass / SCSS** | `import './App.scss'` | Install `sass`; Vite supports it out of the box |
+| **CSS-in-JS** | styled-components, Emotion | Styles written in JS; works best with client components |
+| **Component libraries** | MUI, Chakra UI, Mantine, shadcn/ui, Blueprint | Pre-built accessible components |

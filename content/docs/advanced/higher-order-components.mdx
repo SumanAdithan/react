@@ -1,0 +1,120 @@
+---
+title: Higher-Order Components
+description: Functions that take a component and return an enhanced component, plus the render-props and hooks alternatives.
+---
+
+A **Higher-Order Component (HOC)** is a function that **takes a component and returns a new component** with extra behaviour. It's the component version of a higher-order function.
+
+```text
+const EnhancedComponent = withSomething(BaseComponent);
+```
+
+By convention HOC names start with `with`.
+
+## Example: click tracking
+
+<Tabs items={['withClickTracking.jsx', 'Button.jsx', 'App.jsx']}>
+  <Tab value="withClickTracking.jsx">
+    ```jsx title="withClickTracking.jsx"
+    const withClickTracking = (WrappedComponent) => {
+      function WithClickTracking(props) {
+        const handleClick = () => {
+          console.log('click tracked', props.trackingInfo);
+        };
+
+        return (
+          <div onClick={handleClick}>
+            {/* pass all props through to the wrapped component */}
+            <WrappedComponent {...props} />
+          </div>
+        );
+      }
+
+      // a readable name in React DevTools
+      WithClickTracking.displayName = `withClickTracking(${
+        WrappedComponent.displayName || WrappedComponent.name
+      })`;
+
+      return WithClickTracking;
+    };
+
+    export default withClickTracking;
+    ```
+  </Tab>
+  <Tab value="Button.jsx">
+    ```jsx title="Button.jsx"
+    const Button = ({ label }) => <button>{label}</button>;
+
+    export default Button;
+    ```
+  </Tab>
+  <Tab value="App.jsx">
+    ```jsx title="App.jsx"
+    import Button from './components/Button';
+    import withClickTracking from './withClickTracking';
+
+    // ✅ create the enhanced component ONCE, outside any component
+    const ButtonWithTracking = withClickTracking(Button);
+
+    function App() {
+      return (
+        <>
+          <ButtonWithTracking label="Pay now" trackingInfo={{ amount: 2000, user: 'john' }} />
+          <Button label="Pay now (not tracked)" />
+        </>
+      );
+    }
+
+    export default App;
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="warn" title="Correction to my notes">
+  My original example called `withClickTracking(Button)` **inside** `App`. That creates a brand-new component type on every render, so React unmounts and remounts it each time and its state is lost. Always create HOC results at module level.
+</Callout>
+
+## Common real-world HOCs
+
+- `connect()` from **react-redux** (older Redux API)
+- `withRouter()` from **React Router v5** (removed in v6)
+- `withAuth(Page)`: redirect when the user isn't logged in
+- `memo(Component)`: React's own built-in HOC
+
+## Alternatives
+
+### Render props
+
+A component receives a **function** as a prop and calls it to decide what to render:
+
+```jsx
+function MouseTracker({ render }) {
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  return (
+    <div onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}>{render(pos)}</div>
+  );
+}
+
+<MouseTracker render={({ x, y }) => <p>Mouse at {x}, {y}</p>} />;
+```
+
+### Custom hooks (usually preferred)
+
+Most HOC and render-prop use cases are simpler as a [custom hook](/docs/hooks/custom-hooks):
+
+```jsx
+function useClickTracking(info) {
+  return () => console.log('click tracked', info);
+}
+
+function PayButton() {
+  const track = useClickTracking({ amount: 2000, user: 'john' });
+  return <button onClick={track}>Pay now</button>;
+}
+```
+
+| | HOC | Render props | Custom hook |
+| --- | --- | --- | --- |
+| Reuses | Behaviour and wrapping markup | Behaviour, caller decides the markup | Behaviour only |
+| Downsides | "Wrapper hell", prop-name clashes, harder to type | Nested callbacks | None significant |
+| Today | Legacy code, libraries | Occasionally | ✅ Default choice |

@@ -1,0 +1,6 @@
+{
+  "title": "Getting Started",
+  "icon": "Rocket",
+  "defaultOpen": true,
+  "pages": ["introduction", "installation", "package-managers", "project-structure", "react-in-html", "dev-tools"]
+}

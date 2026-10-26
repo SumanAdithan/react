@@ -1,0 +1,140 @@
+---
+title: Motion (Framer Motion)
+description: Declarative animations, gestures, exit animations and layout animations for React.
+---
+
+**Motion** (formerly **Framer Motion**) is the most popular animation library for React. You describe the **target state** and Motion animates to it.
+
+```bash
+npm i motion
+```
+
+<Callout title="Package rename">
+  Framer Motion was renamed **Motion**. Old code imports from `'framer-motion'`; new code installs `motion` and imports from **`'motion/react'`**. The API is the same.
+</Callout>
+
+## Basic animation
+
+Replace an element with its `motion.` version:
+
+```jsx
+import { motion } from 'motion/react';
+
+function Box() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}         // start state
+      animate={{ opacity: 1, y: 0 }}          // end state
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className="box"
+    />
+  );
+}
+```
+
+When an `animate` value changes, Motion animates to the new value:
+
+```jsx
+<motion.div animate={{ rotate: isOpen ? 180 : 0 }} />
+```
+
+## Gestures
+
+```jsx
+<motion.button
+  whileHover={{ scale: 1.05 }}
+  whileTap={{ scale: 0.95 }}
+  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+>
+  Click me
+</motion.button>
+
+<motion.div drag dragConstraints={{ left: 0, right: 300, top: 0, bottom: 0 }} />
+```
+
+## Exit animations with `AnimatePresence`
+
+React removes elements from the DOM immediately. `AnimatePresence` keeps them mounted until their `exit` animation finishes:
+
+```jsx
+import { AnimatePresence, motion } from 'motion/react';
+
+function Toast({ show, message }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="toast"
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+        >
+          {message}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+```
+
+Animating list items in and out works the same way. Give each item a stable `key`.
+
+## Variants and stagger
+
+Name your states and orchestrate the children:
+
+```jsx
+const list = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+const item = {
+  hidden: { opacity: 0, x: -20 },
+  show: { opacity: 1, x: 0 },
+};
+
+<motion.ul variants={list} initial="hidden" animate="show">
+  {todos.map((t) => (
+    <motion.li key={t.id} variants={item}>
+      {t.title}
+    </motion.li>
+  ))}
+</motion.ul>;
+```
+
+## Layout animations
+
+Add `layout`, and Motion animates **size and position changes** automatically (reordering, expanding, filtering):
+
+```jsx
+<motion.div layout className={isExpanded ? 'card expanded' : 'card'} onClick={toggle} />
+```
+
+Elements with the same `layoutId` in different places animate between them: shared-element transitions such as tab underlines.
+
+```jsx
+{tabs.map((tab) => (
+  <button key={tab} onClick={() => setActive(tab)}>
+    {tab}
+    {active === tab && <motion.div layoutId="underline" className="underline" />}
+  </button>
+))}
+```
+
+## Scroll animations
+
+```jsx
+// animate when the element scrolls into view
+<motion.section initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} />;
+
+// progress bar tied to page scroll
+import { motion, useScroll } from 'motion/react';
+const { scrollYProgress } = useScroll();
+<motion.div style={{ scaleX: scrollYProgress, transformOrigin: '0%' }} className="progress-bar" />;
+```
+
+<Callout type="warn" title="Accessibility">
+  Respect users who prefer less motion. Wrap your app in `<MotionConfig reducedMotion="user">` so Motion turns off transform animations when the OS setting is on.
+</Callout>
+
+**Performance tip:** animate `transform` (`x`, `y`, `scale`, `rotate`) and `opacity`. They run on the GPU. Avoid animating `width`, `height` or `top`; use `layout` instead.

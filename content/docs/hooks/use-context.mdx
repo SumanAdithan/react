@@ -1,0 +1,157 @@
+---
+title: useContext
+description: Share data with deeply nested components without passing props through every level.
+---
+
+## The problem: prop drilling
+
+`App` owns `theme`, but only `User` (three levels down) needs it. `Container` and `Users` have to accept and forward a prop they don't use:
+
+<Tabs items={['Prop drilling', 'With Context']}>
+<Tab value="Prop drilling">
+
+<Mermaid
+  chart="
+flowchart TD
+    A[App: theme state] -- theme --> B[Container: doesn't use it]
+    B -- theme --> C[Users: doesn't use it]
+    C -- theme --> D[User: uses theme]
+"
+/>
+
+</Tab>
+<Tab value="With Context">
+
+<Mermaid
+  chart="
+flowchart TD
+    P[ThemeContext.Provider in App] --> B[Container]
+    B --> C[Users]
+    C --> D[User]
+    P -. useContext reads the value directly .-> D
+"
+/>
+
+</Tab>
+</Tabs>
+
+That's **prop drilling**. It makes components harder to reuse and refactor, because every layer in between has to know about data it doesn't care about.
+
+<Callout title="Correction to my notes">
+  My notes said prop drilling should be avoided because it "occupies more memory". The cost is really **maintainability**: noise, tight coupling and painful refactors. Performance is not the main issue.
+</Callout>
+
+## The solution: Context
+
+<Steps>
+<Step>
+
+### Create the context
+
+```jsx title="ThemeContext.jsx"
+import { createContext } from 'react';
+
+// the default value is used only when there's no Provider above
+export const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {} });
+```
+
+</Step>
+<Step>
+
+### Provide a value high in the tree
+
+```jsx title="App.jsx"
+import { useState } from 'react';
+import { ThemeContext } from './ThemeContext';
+import Container from './Container';
+
+function App() {
+  const [theme, setTheme] = useState('light');
+  const toggleTheme = () => setTheme((curr) => (curr === 'light' ? 'dark' : 'light'));
+
+  return (
+    // pass several values as an object
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      <h1>App component</h1>
+      <Container /> {/* no theme prop needed */}
+    </ThemeContext.Provider>
+  );
+}
+```
+
+</Step>
+<Step>
+
+### Read it anywhere below
+
+```jsx title="User.jsx"
+import { useContext } from 'react';
+import { ThemeContext } from './ThemeContext';
+
+function User() {
+  const { theme, toggleTheme } = useContext(ThemeContext);
+
+  const style = {
+    background: theme === 'light' ? 'white' : 'black',
+    color: theme === 'light' ? 'black' : 'white',
+  };
+
+  return (
+    <div style={style}>
+      <h1>User component</h1>
+      <button onClick={toggleTheme}>Toggle theme</button>
+    </div>
+  );
+}
+```
+
+`Container` and `Users` no longer need a `theme` prop.
+
+</Step>
+</Steps>
+
+<Callout title="React 19 shorthand">
+  In React 19 you can render the context itself as the provider: `<ThemeContext value={...}>`. You can also read it with [`use(ThemeContext)`](/docs/modern-react/react-19#use), which, unlike `useContext`, can be called inside conditions.
+</Callout>
+
+## Recommended pattern: a provider component and a custom hook
+
+```jsx title="ThemeContext.jsx"
+import { createContext, useContext, useMemo, useState } from 'react';
+
+const ThemeContext = createContext(null);
+
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState('light');
+
+  // memoise so consumers don't re-render when ThemeProvider's parent re-renders
+  const value = useMemo(
+    () => ({ theme, toggleTheme: () => setTheme((t) => (t === 'light' ? 'dark' : 'light')) }),
+    [theme]
+  );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+export function useTheme() {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used inside <ThemeProvider>');
+  return ctx;
+}
+```
+
+```jsx
+// main.jsx
+<ThemeProvider>
+  <App />
+</ThemeProvider>;
+
+// any component
+const { theme, toggleTheme } = useTheme();
+```
+
+## Things to keep in mind
+
+- **Every consumer re-renders when the context value changes.** Split unrelated data into separate contexts (`AuthContext`, `ThemeContext`), and memoise object values.
+- Context is good for **low-frequency, app-wide** data: theme, locale, the current user, feature flags.
+- For frequently changing, complex global state, look at [Redux Toolkit or Zustand](/docs/state-management/overview).

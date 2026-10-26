@@ -1,0 +1,182 @@
+---
+title: Forms
+description: Controlled inputs, multiple fields, selects, textareas and form submission.
+---
+
+## Controlled inputs
+
+In a **controlled** input, React state is the single source of truth: the input shows `value={state}` and every keystroke calls `onChange` to update that state.
+
+```jsx
+import { useState } from 'react';
+
+function MyForm() {
+  const [name, setName] = useState('');
+
+  return (
+    <form>
+      <label>
+        Enter your name:
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <p>Hello, {name}</p>
+    </form>
+  );
+}
+```
+
+## Submitting a form
+
+```jsx
+function MyForm() {
+  const [name, setName] = useState('');
+
+  function handleSubmit(e) {
+    e.preventDefault(); // stop the browser from reloading the page
+    console.log('submitted:', name);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+## Handling multiple inputs with one handler
+
+Store all fields in one object and give each input a `name` that matches a key:
+
+```jsx
+function MyForm() {
+  // initial values pre-fill the form
+  const [inputs, setInputs] = useState({
+    name: '',
+    age: '',
+    email: '@gmail.com',
+    phone: '+91',
+    country: 'india',
+    about: 'I am a student',
+  });
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    // [name] is a computed property key: it uses the VALUE of `name` ("email", "age"...)
+    // writing { name: value } would always set a key literally called "name"
+    setInputs((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    console.log(inputs);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} autoComplete="off">
+      <label>
+        Name: <input name="name" value={inputs.name} onChange={handleChange} />
+      </label>
+      <label>
+        Age: <input name="age" type="number" value={inputs.age} onChange={handleChange} />
+      </label>
+      <label>
+        Email: <input name="email" value={inputs.email} onChange={handleChange} />
+      </label>
+      <label>
+        Phone: <input name="phone" value={inputs.phone} onChange={handleChange} />
+      </label>
+
+      {/* select: controlled with value on <select>, not `selected` on <option> */}
+      <label>
+        Country:
+        <select name="country" value={inputs.country} onChange={handleChange}>
+          <option value="">Select</option>
+          <option value="australia">Australia</option>
+          <option value="india">India</option>
+          <option value="united states">United States</option>
+        </select>
+      </label>
+
+      {/* textarea: uses value, not children */}
+      <label>
+        About you:
+        <textarea name="about" value={inputs.about} onChange={handleChange} />
+      </label>
+
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+<Callout type="warn" title="Controlled inputs need onChange">
+  An input with `value` but no `onChange` is read-only, and React warns about it. Also don't switch an input between `value={undefined}` and a string. Start with `''`, not `undefined`, or you get the *"changing an uncontrolled input to be controlled"* warning.
+</Callout>
+
+## Checkboxes and radio buttons
+
+Use `checked` instead of `value`:
+
+```jsx
+const [agree, setAgree] = useState(false);
+<input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />;
+```
+
+## Uncontrolled inputs
+
+An **uncontrolled** input keeps its own value in the DOM. You read it when you need it, through a [ref](/docs/hooks/use-ref) or `FormData`:
+
+```jsx
+function QuickForm() {
+  function handleSubmit(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.currentTarget));
+    console.log(data); // { email: '...', password: '...' }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" defaultValue="" />
+      <input name="password" type="password" />
+      <button>Login</button>
+    </form>
+  );
+}
+```
+
+<Mermaid
+  chart="
+flowchart LR
+    subgraph Controlled
+        S1[React state] -- value --> I1[input]
+        I1 -- onChange --> S1
+    end
+    subgraph Uncontrolled
+        I2[input keeps its own value in the DOM] -- read on submit via ref or FormData --> H[Submit handler]
+    end
+"
+/>
+
+| | Controlled | Uncontrolled |
+| --- | --- | --- |
+| Source of truth | React state | The DOM |
+| Initial value | `value` | `defaultValue` / `defaultChecked` |
+| Live validation and formatting | Easy | Harder |
+| Re-renders per keystroke | Yes | No |
+
+## React 19 form actions
+
+React 19 lets you pass a function to `<form action>`. It receives `FormData`, works with async code and resets the form automatically. See [React 19 → Actions](/docs/modern-react/react-19#actions-and-forms).
+
+```jsx
+<form action={async (formData) => await saveUser(formData.get('name'))}>
+  <input name="name" />
+  <button>Save</button>
+</form>
+```
+
+<Callout title="Form libraries">
+  For large forms with validation, consider **React Hook Form** with a schema validator such as **Zod**.
+</Callout>

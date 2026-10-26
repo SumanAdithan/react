@@ -1,0 +1,108 @@
+---
+title: Programmatic Navigation & Route State
+description: Navigate from code with useNavigate, and pass data between routes with location state.
+---
+
+## useNavigate
+
+Use `useNavigate` to navigate **from code**: after a login, a form submission or a timeout.
+
+```jsx title="Login.jsx"
+import { useNavigate } from 'react-router-dom';
+
+export default function Login() {
+  const navigate = useNavigate();
+
+  function onSubmit() {
+    // ...check the user's credentials
+    // if valid:
+    navigate('/dashboard');
+  }
+
+  return (
+    <>
+      <h1>Login page</h1>
+      <button onClick={onSubmit}>Login</button>
+    </>
+  );
+}
+```
+
+### Options
+
+```jsx
+navigate('/dashboard');                    // push a new history entry
+navigate('/login', { replace: true });     // replace the entry, so "Back" won't return here
+navigate(-1);                              // go back
+navigate(1);                               // go forward
+navigate('/profile', { state: { from: 'home' } }); // pass state (see below)
+```
+
+<Callout>
+  Use `replace: true` after login or logout redirects, so the user can't press Back into a page they shouldn't see.
+</Callout>
+
+## `<Navigate>` component
+
+To redirect **during render** (for example inside a route guard), render `<Navigate>` instead of calling `navigate()`:
+
+```jsx
+import { Navigate } from 'react-router-dom';
+
+if (!user) return <Navigate to="/login" replace />;
+```
+
+## Passing state to a route
+
+You can send data to the next page **without putting it in the URL**.
+
+<Tabs items={['With Link', 'With useNavigate', 'Receiving (useLocation)']}>
+  <Tab value="With Link">
+    ```jsx
+    import { Link } from 'react-router-dom';
+
+    const Home = () => {
+      const user = { name: 'John Doe', age: 30 };
+      return (
+        <Link to="/profile" state={user}>
+          Go to profile
+        </Link>
+      );
+    };
+    ```
+  </Tab>
+  <Tab value="With useNavigate">
+    ```jsx
+    import { useNavigate } from 'react-router-dom';
+
+    const Home = () => {
+      const navigate = useNavigate();
+      const user = { name: 'Jane Doe', age: 28 };
+
+      return <button onClick={() => navigate('/profile', { state: user })}>Go to profile</button>;
+    };
+    ```
+  </Tab>
+  <Tab value="Receiving (useLocation)">
+    ```jsx
+    import { useLocation } from 'react-router-dom';
+
+    const Profile = () => {
+      const location = useLocation();
+      const user = location.state; // may be null!
+
+      return (
+        <>
+          <h1>Profile page</h1>
+          <p>Name: {user?.name}</p>
+          <p>Age: {user?.age}</p>
+        </>
+      );
+    };
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="warn">
+  Location state exists only when the user arrived **through your link**. If they open `/profile` directly or from a bookmark, `location.state` is `null`. Always handle that case (`user?.name`), and use [URL params](/docs/routing/route-parameters) for anything that must survive a refresh or be shareable.
+</Callout>

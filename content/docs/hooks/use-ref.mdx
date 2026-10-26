@@ -1,0 +1,126 @@
+---
+title: useRef
+description: Access DOM elements, and keep mutable values that survive renders without causing them.
+---
+
+```jsx
+const ref = useRef(initialValue);
+// ref.current → the stored value
+```
+
+`useRef` returns a plain object `{ current: initialValue }` that **stays the same object for the component's whole lifetime**. Changing `ref.current` **does not trigger a re-render**.
+
+It has two main uses.
+
+## 1. Referencing DOM elements
+
+Pass the ref to an element's `ref` attribute, and React sets `ref.current` to the DOM node after mounting:
+
+```jsx
+import { useRef } from 'react';
+
+function SearchBox() {
+  const inputRef = useRef(null);
+
+  const focusInput = () => {
+    inputRef.current.focus();
+  };
+
+  const showValue = () => {
+    console.log(inputRef.current.value); // read without state
+  };
+
+  return (
+    <>
+      <input ref={inputRef} type="text" />
+      <button onClick={focusInput}>Focus</button>
+      <button onClick={showValue}>Show input</button>
+    </>
+  );
+}
+```
+
+Common DOM uses: focusing inputs, scrolling to an element, measuring size, playing or pausing video, and integrating non-React libraries (charts, maps).
+
+## 2. Storing values without re-rendering
+
+Use a ref for values your **rendering doesn't depend on**: timer IDs, previous values, render counts, `AbortController`s.
+
+### Storing the previous value
+
+```jsx
+import { useState, useRef, useEffect } from 'react';
+
+function NameInput() {
+  const [name, setName] = useState('');
+  const prevName = useRef('');
+
+  // after each render, remember the value for next time
+  useEffect(() => {
+    prevName.current = name;
+  }, [name]);
+
+  return (
+    <>
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      <p>Current: {name}</p>
+      <p>Previous: {prevName.current}</p>
+    </>
+  );
+}
+```
+
+### Storing a timer ID
+
+```jsx
+function Stopwatch() {
+  const [time, setTime] = useState(0);
+  const intervalRef = useRef(null);
+
+  const start = () => {
+    intervalRef.current = setInterval(() => setTime((t) => t + 1), 1000);
+  };
+  const stop = () => clearInterval(intervalRef.current);
+
+  return (
+    <>
+      <p>{time}s</p>
+      <button onClick={start}>Start</button>
+      <button onClick={stop}>Stop</button>
+    </>
+  );
+}
+```
+
+<Callout type="warn" title="Correction to my notes">
+  My original example used **one** ref for both the `<input ref>` (DOM node) and the previous value (`inputRef.current = input`). The two uses overwrite each other. Use a separate ref for each purpose, as above.
+</Callout>
+
+## Ref vs state
+
+| | `useState` | `useRef` |
+| --- | --- | --- |
+| Triggers re-render on change | ✅ | ❌ |
+| Value persists across renders | ✅ | ✅ |
+| Update style | `setX(value)` (async) | `ref.current = value` (immediate) |
+| Use for | Anything shown on screen | DOM nodes, timers, previous values, instance variables |
+
+<Callout type="warn">
+  Don't read or write `ref.current` **during render** (except for lazy initialisation). The value can be out of date, and React can't track it. Use refs in event handlers and effects.
+</Callout>
+
+## Passing refs to your own components
+
+In **React 19**, `ref` is a normal prop for function components:
+
+```jsx
+function MyInput({ ref, ...props }) {
+  return <input ref={ref} {...props} />;
+}
+
+// parent
+const inputRef = useRef(null);
+<MyInput ref={inputRef} />;
+```
+
+In React 18 and earlier you needed `forwardRef`. See [Refs & forwardRef](/docs/advanced/refs-and-forwarding).

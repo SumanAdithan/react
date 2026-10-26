@@ -1,0 +1,168 @@
+---
+title: shadcn/ui
+description: Accessible, customisable components that are copied into your project instead of installed as a dependency.
+---
+
+**shadcn/ui** isn't a component library you install from npm. A CLI **copies the component source code into your project** (`src/components/ui/button.tsx`). You own the code and can change anything. The components are built on **Tailwind CSS** and accessible headless primitives (**Radix UI** or **Base UI**).
+
+| Traditional library (MUI, Chakra) | shadcn/ui |
+| --- | --- |
+| `npm install`, import from the package | Copy the source into your repo |
+| Customise through theme props or overrides | Edit the component file directly |
+| Version upgrades can break your styles | Nothing changes unless you change it |
+
+<AIImage
+  src="/images/ai/shadcn-copy-model.png"
+  alt="Component source files being copied into a project folder instead of installed as a sealed package"
+  prompt="Left side: a sealed, locked cardboard box labelled 'npm package' with a padlock. Right side: an open project folder labelled 'src/components/ui'. In the middle, readable source-code file sheets labelled 'button.tsx', 'dialog.tsx' and 'card.tsx' fly from a glowing registry cloud into the open folder, and a small hand with a pencil edits one of them. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+## Setup (Vite + React + TypeScript)
+
+<Steps>
+<Step>
+
+### Set up Tailwind and the `@` alias
+
+Follow [Tailwind CSS setup](/docs/libraries/ui/tailwind-css#setup-with-vite-tailwind-v4), then add the path alias:
+
+```json title="tsconfig.json (and tsconfig.app.json)"
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
+  }
+}
+```
+
+```ts title="vite.config.ts"
+import path from 'node:path';
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+});
+```
+
+</Step>
+<Step>
+
+### Initialise
+
+```bash
+npx shadcn@latest init
+```
+
+This creates `components.json`, adds the theme CSS variables and creates `src/lib/utils.ts` with the [`cn()` helper](/docs/libraries/ui/utilities#clsx--tailwind-merge-the-cn-helper).
+
+</Step>
+<Step>
+
+### Add components
+
+```bash
+npx shadcn@latest add button card input dialog dropdown-menu table sonner form
+```
+
+</Step>
+</Steps>
+
+## Using components
+
+```tsx
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+
+export function Example() {
+  return (
+    <Card className="max-w-sm">
+      <CardHeader>
+        <CardTitle>Account</CardTitle>
+      </CardHeader>
+      <CardContent className="flex gap-2">
+        <Button>Save</Button>
+        <Button variant="outline">Cancel</Button>
+        <Button variant="destructive" size="sm">Delete</Button>
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="secondary">Open dialog</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Are you sure?</DialogTitle>
+            </DialogHeader>
+            {/* focus trap, Esc to close and ARIA attributes come built in */}
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+## Variants with `cva`
+
+Components define their variants with **class-variance-authority**. Add your own by editing the file:
+
+```tsx title="components/ui/button.tsx (excerpt)"
+const buttonVariants = cva('inline-flex items-center justify-center rounded-md text-sm font-medium', {
+  variants: {
+    variant: {
+      default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+      outline: 'border bg-background hover:bg-accent',
+      success: 'bg-green-600 text-white hover:bg-green-700', // ← your own variant
+    },
+    size: { default: 'h-9 px-4', sm: 'h-8 px-3', lg: 'h-10 px-6' },
+  },
+  defaultVariants: { variant: 'default', size: 'default' },
+});
+```
+
+## Forms
+
+shadcn/ui's form components combine [React Hook Form](/docs/libraries/forms/react-hook-form) and [Zod](/docs/libraries/forms/zod) with accessible labels and error messages:
+
+```tsx
+const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
+
+<Form {...form}>
+  <form onSubmit={form.handleSubmit(onSubmit)}>
+    <FormField
+      control={form.control}
+      name="email"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Email</FormLabel>
+          <FormControl>
+            <Input placeholder="you@example.com" {...field} />
+          </FormControl>
+          <FormMessage /> {/* shows the Zod error */}
+        </FormItem>
+      )}
+    />
+    <Button type="submit">Submit</Button>
+  </form>
+</Form>;
+```
+
+Newer versions of the registry also offer a lighter `Field` component set that works with any form library. Check the [shadcn/ui forms docs](https://ui.shadcn.com/docs/forms) for the version you installed.
+
+## Data tables
+
+The shadcn **Data Table** guide combines `<Table>` with [TanStack Table](/docs/libraries/tanstack-table) for sorting, filtering, pagination and selection. It's the usual way to build admin tables in this stack.
+
+## Theming and dark mode
+
+Colours are CSS variables (`--primary`, `--background`...) in your global CSS, so you can re-theme the whole app by editing them. Dark mode switches by adding a `dark` class to `<html>`.
+
+<Callout title="Alternatives">
+  **MUI** (Material Design, very complete), **Mantine** (lots of components and hooks), **Chakra UI**, **Ant Design** (enterprise dashboards), and **HeroUI**.
+</Callout>

@@ -1,0 +1,119 @@
+---
+title: Production Builds
+description: Minify JavaScript, cache-bust with content hashes, and clean the dist folder.
+---
+
+## Minifying JavaScript
+
+**Terser** removes whitespace and comments, shortens variable names and drops dead code.
+
+```bash
+npm i terser-webpack-plugin --save-dev
+```
+
+```js title="webpack.config.js"
+const TerserPlugin = require('terser-webpack-plugin');
+
+module.exports = {
+  // ...
+  plugins: [new TerserPlugin()],
+};
+```
+
+<Callout title="Built in">
+  Webpack 5 already runs Terser when `mode: 'production'`. Add the plugin manually only to customise it, under `optimization.minimizer` rather than `plugins`.
+</Callout>
+
+## Browser caching and content hashes
+
+Browsers **cache** `style.css` and `bundle.js` so repeat visits are fast.
+
+![The browser caches style.css and bundle.js from the server](/images/webpack/caching-1.png)
+
+The problem: if you deploy a new `bundle.js` **with the same name**, the browser keeps using the old cached copy and users don't see your changes.
+
+![The server's files changed, but the browser still uses its cached copies](/images/webpack/caching-2.png)
+
+A developer can force fresh files with **Empty Cache and Hard Reload** in Chrome DevTools, but you can't ask every user to do that.
+
+The fix: put a **hash of the file's content** in the filename. When the content changes, the name changes, so the browser downloads the new file. Unchanged files keep their name and stay cached.
+
+![Hashed filenames such as style.e7y4e9.css and bundle.6hd74i.js](/images/webpack/caching-3.png)
+
+![After a change, new hashed filenames make the browser fetch the new files](/images/webpack/caching-4.png)
+
+```js title="webpack.config.js"
+module.exports = {
+  output: {
+    filename: 'bundle.[contenthash].js',       // bundle.6hd74i.js
+    path: path.resolve(__dirname, './dist'),
+  },
+  plugins: [new MiniCssExtractPlugin({ filename: 'style.[contenthash].css' })],
+};
+```
+
+Because the filenames change on every build, you can't hard-code them in `index.html`. Use **`html-webpack-plugin`** to generate the HTML with the correct `<script>` and `<link>` tags:
+
+```bash
+npm i html-webpack-plugin --save-dev
+```
+
+```js
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+plugins: [new HtmlWebpackPlugin({ title: 'My App' })];
+```
+
+## Cleaning the dist folder
+
+Every build with new hashes adds files to `dist/`, so old bundles pile up. Clean the folder before each build:
+
+```js title="webpack.config.js (webpack 5)"
+output: {
+  filename: 'bundle.[contenthash].js',
+  path: path.resolve(__dirname, './dist'),
+  clean: true, // ✅ built in since webpack 5.20
+},
+```
+
+```js title="Legacy: clean-webpack-plugin"
+// npm i clean-webpack-plugin --save-dev
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+plugins: [new CleanWebpackPlugin()];
+```
+
+## Complete production config
+
+```js title="webpack.config.js"
+const path = require('path');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+module.exports = {
+  mode: 'production', // enables Terser, tree-shaking and other optimisations
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.[contenthash].js',
+    path: path.resolve(__dirname, './dist'),
+    publicPath: '/',
+    clean: true,
+  },
+  module: {
+    rules: [
+      { test: /\.(png|jpe?g|gif|svg)$/i, type: 'asset' },
+      { test: /\.css$/, use: [MiniCssExtractPlugin.loader, 'css-loader'] },
+      { test: /\.scss$/, use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'] },
+      { test: /\.(js|jsx)$/, exclude: /node_modules/, loader: 'babel-loader' },
+    ],
+  },
+  resolve: { extensions: ['.js', '.jsx'] },
+  plugins: [
+    new MiniCssExtractPlugin({ filename: 'style.[contenthash].css' }),
+    new HtmlWebpackPlugin({ template: './src/index.html' }),
+  ],
+};
+```
+
+<Callout type="warn" title="Corrections to my notes">
+  - The CSS filename was `'.[contenthash]style.css'`, which creates a hidden file starting with a dot. Use `'style.[contenthash].css'`.
+  - `new terserPlugin()`: constructors are PascalCase by convention (`TerserPlugin`).
+</Callout>

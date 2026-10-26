@@ -1,0 +1,106 @@
+---
+title: Performance & memo
+description: Avoid unnecessary re-renders with memo, useMemo and useCallback, and measure before optimising.
+---
+
+<Callout title="Measure first">
+  Most React apps are fast enough by default. Use the [Profiler](/docs/getting-started/dev-tools) to find a **real** slowdown before adding memoisation.
+</Callout>
+
+## React.memo
+
+By default, when a parent re-renders **all of its children re-render too**, even if their props didn't change. `memo` makes a component skip re-rendering when its props are shallowly equal to last time.
+
+<Mermaid
+  chart="
+flowchart TD
+    A[App: count changes] --> B[Header re-renders]
+    A --> C[Counter re-renders]
+    A --> D[memo ExpensiveList: props unchanged, skipped]
+    style D stroke-dasharray: 5 5
+"
+/>
+
+```jsx
+import { memo, useState } from 'react';
+
+const ExpensiveList = memo(function ExpensiveList({ items }) {
+  console.log('List rendered');
+  return items.map((i) => <p key={i}>{i}</p>);
+});
+
+function App() {
+  const [count, setCount] = useState(0);
+  const [items] = useState(['a', 'b', 'c']);
+
+  return (
+    <>
+      <button onClick={() => setCount((c) => c + 1)}>Count {count}</button>
+      {/* doesn't re-render when count changes */}
+      <ExpensiveList items={items} />
+    </>
+  );
+}
+```
+
+### memo needs stable props
+
+`memo` compares props with `Object.is`. New objects, arrays or functions created during render **break** it:
+
+```jsx
+// ❌ new array and new function every render, so memo is useless
+<ExpensiveList items={['a', 'b']} onSelect={() => select()} />
+
+// ✅ stable references
+const items = useMemo(() => ['a', 'b'], []);
+const onSelect = useCallback(() => select(), []);
+<ExpensiveList items={items} onSelect={onSelect} />
+```
+
+That's why [`useMemo`](/docs/hooks/use-memo) and [`useCallback`](/docs/hooks/use-callback) usually come together with `memo`.
+
+## Other techniques
+
+| Technique | Helps when |
+| --- | --- |
+| **Move state down** | Only a small part of the tree needs the state. Put it in a child so siblings don't re-render. |
+| **Lift content up** (`children`) | A wrapper with state renders `children`, which don't re-render when the wrapper's state changes. |
+| **Keys** | Stable keys stop React from re-creating list items. |
+| **Virtualisation** | Rendering thousands of rows. Use `@tanstack/react-virtual` or `react-window` to render only the visible ones. |
+| **Code splitting** | Large bundles. See [Code Splitting](/docs/advanced/code-splitting). |
+| **Transitions** | Expensive updates block typing. See [`useTransition` / `useDeferredValue`](/docs/hooks/other-hooks). |
+| **Debounce input** | Searching on every keystroke. See [`useDebounce`](/docs/hooks/custom-hooks#usedebounce). |
+
+## Moving state down
+
+```jsx
+// ❌ typing re-renders <ExpensiveTree />
+function App() {
+  const [text, setText] = useState('');
+  return (
+    <>
+      <input value={text} onChange={(e) => setText(e.target.value)} />
+      <ExpensiveTree />
+    </>
+  );
+}
+
+// ✅ the state lives where it's used
+function SearchInput() {
+  const [text, setText] = useState('');
+  return <input value={text} onChange={(e) => setText(e.target.value)} />;
+}
+
+function App() {
+  return (
+    <>
+      <SearchInput />
+      <ExpensiveTree />
+    </>
+  );
+}
+```
+
+## React Compiler
+
+The [React Compiler](/docs/modern-react/react-compiler) analyses your components at build time and inserts the equivalent of `memo`, `useMemo` and `useCallback` automatically.

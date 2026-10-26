@@ -1,0 +1,73 @@
+---
+title: Conditional Rendering
+description: Show different UI depending on conditions.
+---
+
+JSX has no `if` statement, but plain JavaScript gives you several options.
+
+## Ternary operator: `condition ? a : b`
+
+Use it to choose between **two** outputs:
+
+```jsx
+function Garage() {
+  const isDoorOpen = true;
+
+  return isDoorOpen ? <h2>Garage door is open</h2> : <h2>Door is closed</h2>;
+}
+```
+
+## Logical AND: `condition && element`
+
+Use it to render something **or nothing**:
+
+```jsx
+function Garage({ carInfo }) {
+  const showCarInfo = carInfo.brand !== undefined && carInfo.color !== undefined;
+
+  return (
+    <>
+      <h1>Who lives in my garage?</h1>
+      {showCarInfo && <Car carInfo={carInfo} />}
+    </>
+  );
+}
+```
+
+<Callout type="warn" title="The 0 pitfall">
+  `{count && <Badge />}` renders a literal **`0`** when `count` is `0`, because `0` is falsy but still renderable. Use a boolean: `{count > 0 && <Badge />}`.
+</Callout>
+
+## `if` / early return
+
+For more complex logic, use plain `if` statements *before* the JSX:
+
+```jsx
+function Status({ loading, error, data }) {
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+  return <DataTable rows={data} />;
+}
+```
+
+## Variables
+
+```jsx
+let content;
+if (role === 'admin') content = <AdminPanel />;
+else if (role === 'editor') content = <Editor />;
+else content = <Viewer />;
+
+return <main>{content}</main>;
+```
+
+## Returning `null`
+
+A component can render nothing by returning `null`:
+
+```jsx
+function Warning({ show }) {
+  if (!show) return null;
+  return <div className="warning">Warning!</div>;
+}
+```

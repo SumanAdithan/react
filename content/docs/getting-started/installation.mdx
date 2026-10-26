@@ -1,0 +1,77 @@
+---
+title: Installation
+description: Create a new React project with Vite or a framework, and run it locally.
+---
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org) LTS (includes `npm`)
+- A code editor. VS Code with the **ES7+ React/Redux/React-Native snippets** extension is a good setup; it adds shortcuts such as `rafce` for a component skeleton.
+
+## Option 1: Vite (recommended for learning and SPAs)
+
+<Steps>
+<Step>
+
+### Create the project
+
+```bash
+npm create vite@latest my-app -- --template react
+# or with TypeScript
+npm create vite@latest my-app -- --template react-ts
+```
+
+</Step>
+<Step>
+
+### Install dependencies
+
+```bash
+cd my-app
+npm install
+```
+
+</Step>
+<Step>
+
+### Start the dev server
+
+```bash
+npm run dev
+```
+
+Open the URL shown in the terminal (usually `http://localhost:5173`).
+
+</Step>
+</Steps>
+
+## Option 2: A full-stack framework
+
+For production apps the React team recommends a framework, which adds routing, data fetching and server rendering:
+
+```bash
+npx create-next-app@latest       # Next.js
+npx create-react-router@latest   # React Router (framework mode)
+```
+
+## Create React App (legacy)
+
+My original notes used Create React App (CRA):
+
+```bash
+npx create-react-app project-name   # prints "Happy hacking!" when done
+npm start                            # runs the dev server on :3000
+```
+
+<Callout type="warn" title="CRA is deprecated">
+  Create React App was officially deprecated in February 2025 and is no longer maintained. You will still see it in older tutorials (`npm start`, `src/index.js`, `reportWebVitals`). Use Vite or a framework for new projects. The React concepts are the same.
+</Callout>
+
+## Command cheat sheet
+
+| Task | Vite | CRA (legacy) |
+| --- | --- | --- |
+| Start dev server | `npm run dev` | `npm start` |
+| Production build | `npm run build` | `npm run build` |
+| Preview build | `npm run preview` | n/a |
+| Run tests | `npm test` (Vitest, if configured) | `npm test` (Jest) |

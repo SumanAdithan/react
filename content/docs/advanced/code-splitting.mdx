@@ -1,0 +1,91 @@
+---
+title: Code Splitting (lazy & Suspense)
+description: Load components only when needed, and show a fallback while they load.
+---
+
+By default your bundler puts the whole app into one bundle that loads up front. **Code splitting** breaks it into chunks that are downloaded on demand.
+
+<AIImage
+  src="/images/ai/code-splitting-chunks.png"
+  alt="One large bundle compared with small chunks loaded on demand"
+  prompt="Left: one huge heavy cube labelled 'bundle.js' being pushed slowly into a browser window by a tired figure. Right: the same volume split into several small glowing cubes labelled 'home', 'dashboard', 'settings'; only the 'home' cube flies into the browser window immediately while the others wait on a shelf, one of them starting to move when a cursor clicks a nav link. Labels: 'bundle.js', 'home', 'dashboard', 'settings'. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+## React.lazy
+
+```jsx
+import { lazy, Suspense } from 'react';
+
+// the module is downloaded the first time <Settings /> renders
+const Settings = lazy(() => import('./pages/Settings'));
+
+function App() {
+  return (
+    <Suspense fallback={<p>Loading...</p>}>
+      <Settings />
+    </Suspense>
+  );
+}
+```
+
+- `lazy` takes a function that returns a dynamic `import()`.
+- The lazily loaded module must have a **default export** that is a component.
+- `lazy` must be called at **module level**, not inside a component.
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant U as User
+    participant R as React
+    participant S as Server
+    U->>R: Navigate to /settings
+    R->>R: Settings not loaded yet - show the Suspense fallback
+    R->>S: Download the Settings chunk
+    S-->>R: settings chunk
+    R->>U: Render Settings
+"
+/>
+
+## Suspense
+
+`<Suspense>` shows its `fallback` while anything inside it is still loading: lazy components, or [data that suspends](/docs/modern-react/react-19#use).
+
+```jsx
+<Suspense fallback={<PageSkeleton />}>
+  <Header />
+  <Suspense fallback={<Spinner />}>
+    <Comments /> {/* can show its own spinner while the rest is visible */}
+  </Suspense>
+</Suspense>
+```
+
+Nest boundaries to control which parts of the page appear together.
+
+## Route-based splitting
+
+The most effective place to split is **per route**:
+
+```jsx
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+const Home = lazy(() => import('./pages/Home'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={<p>Loading page...</p>}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
+}
+```
+
+<Callout>
+  Pair `Suspense` with an [Error Boundary](/docs/advanced/error-boundaries), so a failed chunk download (on a flaky network, for example) shows a retry UI instead of crashing.
+</Callout>

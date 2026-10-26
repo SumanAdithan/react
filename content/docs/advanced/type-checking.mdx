@@ -1,0 +1,72 @@
+---
+title: Type Checking with PropTypes
+description: Runtime prop validation with the prop-types package (legacy), and why TypeScript replaced it.
+---
+
+<Callout type="warn" title="Legacy in React 19">
+  React 19 **removed** PropTypes checks: `Component.propTypes` is silently ignored, and `defaultProps` no longer works on function components. This page documents the pattern for older codebases. For new code, use [TypeScript](/docs/advanced/typescript).
+</Callout>
+
+## Using PropTypes (React 18 and earlier)
+
+```bash
+npm i prop-types
+```
+
+```jsx
+import PropTypes from 'prop-types';
+
+const MyComponent = ({ title, count, isActive = false }) => (
+  <div>
+    <h1>{title}</h1>
+    <p>Count: {count}</p>
+    <p>{isActive ? 'Active' : 'Inactive'}</p>
+  </div>
+);
+
+MyComponent.propTypes = {
+  title: PropTypes.string.isRequired,
+  count: PropTypes.number.isRequired,
+  isActive: PropTypes.bool,
+};
+
+export default MyComponent;
+```
+
+In development, passing the wrong type logged a console warning such as *"Failed prop type: The prop `count` is marked as required..."*.
+
+### Common validators
+
+| Validator | Accepts |
+| --- | --- |
+| `PropTypes.string`, `.number`, `.bool`, `.func`, `.array`, `.object` | Primitive types |
+| `PropTypes.node` | Anything renderable |
+| `PropTypes.element` | A single React element |
+| `PropTypes.oneOf(['sm', 'md'])` | One of the listed values |
+| `PropTypes.arrayOf(PropTypes.number)` | An array of one type |
+| `PropTypes.shape({ id: PropTypes.number })` | An object with this shape |
+| `.isRequired` | Appended to any validator |
+
+## Default props
+
+```jsx
+// ❌ defaultProps: removed for function components in React 19
+MyComponent.defaultProps = { isActive: false };
+
+// ✅ default parameter values (works in every version)
+const MyComponent = ({ isActive = false }) => { /* ... */ };
+```
+
+## Same thing in TypeScript
+
+```tsx
+type MyComponentProps = {
+  title: string;
+  count: number;
+  isActive?: boolean;
+};
+
+const MyComponent = ({ title, count, isActive = false }: MyComponentProps) => { /* ... */ };
+```
+
+TypeScript catches the mistake **in your editor, before the code runs**, instead of as a runtime warning.

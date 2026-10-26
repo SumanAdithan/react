@@ -1,0 +1,195 @@
+---
+title: React 19
+description: Actions, useActionState, useFormStatus, useOptimistic, use(), ref as a prop and the other React 19 changes.
+---
+
+React 19 (released December 2024) focuses on **async data mutations** ("Actions") and on removing boilerplate.
+
+## Actions and forms
+
+An **Action** is an async function used in a transition. React tracks its pending state, errors and optimistic updates for you.
+
+### `<form action={fn}>`
+
+Pass a function to a form's `action` prop. It receives `FormData`, and the form **resets automatically** after a successful submission:
+
+```jsx
+function AddTodo({ addTodo }) {
+  async function submit(formData) {
+    await addTodo(formData.get('title'));
+  }
+
+  return (
+    <form action={submit}>
+      <input name="title" />
+      <button type="submit">Add</button>
+    </form>
+  );
+}
+```
+
+No `e.preventDefault()`, no `useState` for the input, and no manual reset.
+
+### useActionState
+
+Wraps an action and gives you its **result** and **pending** state:
+
+```jsx
+import { useActionState } from 'react';
+
+async function updateName(previousState, formData) {
+  const name = formData.get('name');
+  const error = await saveName(name); // your API call
+  if (error) return { error };
+  return { error: null, name };
+}
+
+function NameForm() {
+  const [state, formAction, isPending] = useActionState(updateName, { error: null });
+
+  return (
+    <form action={formAction}>
+      <input name="name" />
+      <button disabled={isPending}>{isPending ? 'Saving...' : 'Save'}</button>
+      {state.error && <p className="error">{state.error}</p>}
+      {state.name && <p>Saved: {state.name}</p>}
+    </form>
+  );
+}
+```
+
+### useFormStatus
+
+Lets a child component read the status of the **parent `<form>`** without prop drilling. It's well suited to reusable submit buttons:
+
+```jsx
+import { useFormStatus } from 'react-dom';
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return <button disabled={pending}>{pending ? 'Submitting...' : 'Submit'}</button>;
+}
+
+<form action={submit}>
+  <input name="email" />
+  <SubmitButton />
+</form>;
+```
+
+### useOptimistic
+
+Shows the expected result **immediately**, while the request is still in flight. React rolls it back automatically if the action fails:
+
+```jsx
+import { useOptimistic } from 'react';
+
+function Messages({ messages, sendMessage }) {
+  const [optimisticMessages, addOptimistic] = useOptimistic(
+    messages,
+    (current, newText) => [...current, { text: newText, sending: true }]
+  );
+
+  async function formAction(formData) {
+    const text = formData.get('message');
+    addOptimistic(text);      // appears instantly
+    await sendMessage(text);  // the real request
+  }
+
+  return (
+    <>
+      {optimisticMessages.map((m, i) => (
+        <p key={i} style={{ opacity: m.sending ? 0.5 : 1 }}>
+          {m.text}
+        </p>
+      ))}
+      <form action={formAction}>
+        <input name="message" />
+      </form>
+    </>
+  );
+}
+```
+
+### Async transitions
+
+`startTransition` now accepts async functions:
+
+```jsx
+const [isPending, startTransition] = useTransition();
+
+const handleSave = () => {
+  startTransition(async () => {
+    const error = await updateProfile(data);
+    if (error) setError(error);
+  });
+};
+```
+
+## use
+
+`use` reads the value of a **promise** or a **context**. Unlike other hooks, it **can be called inside conditions and loops**.
+
+```jsx
+import { use, Suspense } from 'react';
+
+function Comments({ commentsPromise }) {
+  const comments = use(commentsPromise); // suspends until resolved
+  return comments.map((c) => <p key={c.id}>{c.text}</p>);
+}
+
+function Post({ commentsPromise }) {
+  return (
+    <Suspense fallback={<p>Loading comments...</p>}>
+      <Comments commentsPromise={commentsPromise} />
+    </Suspense>
+  );
+}
+```
+
+```jsx
+function Heading({ show }) {
+  if (!show) return null;
+  const theme = use(ThemeContext); // ✅ allowed after an early return
+  return <h1 className={theme}>Hello</h1>;
+}
+```
+
+<Callout type="warn">
+  Don't create the promise **during render** in the same component (`use(fetch(...))`). It creates a new promise on every render. Pass promises from a parent, a Server Component, or a caching library.
+</Callout>
+
+## Quality-of-life changes
+
+| Change | Before | React 19 |
+| --- | --- | --- |
+| Refs | `forwardRef((props, ref) => ...)` | `function Input({ ref }) {...}`. See [Refs](/docs/advanced/refs-and-forwarding) |
+| Context provider | `<ThemeContext.Provider value={v}>` | `<ThemeContext value={v}>` |
+| Ref cleanup | n/a | Ref callbacks can return a cleanup function |
+| Document metadata | react-helmet | Render `<title>`, `<meta>` and `<link>` anywhere; React hoists them to `<head>` |
+| Stylesheets | Manual | `<link rel="stylesheet" precedence="default">` with loading coordination |
+| Hydration errors | Several vague errors | One diff showing the mismatch |
+
+```jsx
+function BlogPost({ post }) {
+  return (
+    <article>
+      <title>{post.title}</title>          {/* hoisted to <head> */}
+      <meta name="description" content={post.excerpt} />
+      <h1>{post.title}</h1>
+    </article>
+  );
+}
+```
+
+## Removed in React 19
+
+| Removed | Use instead |
+| --- | --- |
+| `propTypes`, `defaultProps` on function components | TypeScript, default parameters |
+| String refs (`ref="input"`) | `useRef` / callback refs |
+| Legacy context (`contextTypes`) | `createContext` |
+| `ReactDOM.render`, `ReactDOM.hydrate` | `createRoot`, `hydrateRoot` |
+| `react-test-renderer/shallow` | React Testing Library |
+| UMD builds | ESM CDNs such as esm.sh |
+
+Upgrade guide: [react.dev/blog/2024/04/25/react-19-upgrade-guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide)

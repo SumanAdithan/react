@@ -1,0 +1,118 @@
+---
+title: Updating Objects & Arrays
+description: Treat state as immutable. Create new objects and arrays instead of mutating them.
+---
+
+React decides whether to re-render by comparing the old and new state **by reference** (`Object.is`). If you mutate an object or array in place, the reference stays the same, so React doesn't see the change.
+
+```jsx
+// ❌ mutation: same reference, no re-render
+scooter.color = 'blue';
+setScooter(scooter);
+
+// ✅ new object
+setScooter({ ...scooter, color: 'blue' });
+```
+
+## Updating objects
+
+<Tabs items={['Function component', 'Class component']}>
+  <Tab value="Function component">
+    ```jsx
+    import { useState } from 'react';
+
+    function Scooter() {
+      const [scooter, setScooter] = useState({
+        color: 'red',
+        brand: 'Honda',
+        model: 'Activa 6G',
+        year: 2020,
+      });
+
+      const updateColor = () => {
+        // copy every existing field, then override `color`
+        setScooter((prev) => ({ ...prev, color: 'blue' }));
+      };
+
+      return (
+        <>
+          <p>Color: {scooter.color}</p>
+          <p>Brand: {scooter.brand}</p>
+          <button onClick={updateColor}>Change color</button>
+        </>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Class component">
+    ```jsx
+    class Car extends React.Component {
+      state = { color: 'red', model: 'Ford' };
+
+      render() {
+        return (
+          <>
+            <h1>
+              My car is {this.state.color}, model {this.state.model}
+            </h1>
+            {/* class setState merges automatically, so the spread is optional */}
+            <button onClick={() => this.setState({ color: 'blue' })}>Change</button>
+          </>
+        );
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Nested objects
+
+Copy every level you change:
+
+```jsx
+setUser((prev) => ({
+  ...prev,
+  address: { ...prev.address, city: 'Chennai' },
+}));
+```
+
+## Updating arrays
+
+```jsx
+import { useState } from 'react';
+
+function List() {
+  const [list, setList] = useState([]);
+  const [count, setCount] = useState(1);
+
+  function addItem() {
+    setList((prev) => [...prev, `item ${count}`]);
+    setCount((prev) => prev + 1);
+  }
+
+  return (
+    <>
+      <button onClick={addItem}>Add item</button>
+      <ul>
+        {list.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </>
+  );
+}
+```
+
+### Array cheat sheet
+
+| Goal | ❌ Mutates | ✅ Returns a new array |
+| --- | --- | --- |
+| Add | `push`, `unshift` | `[...arr, item]`, `[item, ...arr]` |
+| Remove | `splice`, `pop`, `shift` | `arr.filter((x) => x.id !== id)` |
+| Update one item | `arr[i] = x` | `arr.map((x) => (x.id === id ? { ...x, done: true } : x))` |
+| Sort / reverse | `sort`, `reverse` | `arr.toSorted()`, `arr.toReversed()`, or `[...arr].sort()` |
+| Insert at index | `splice` | `[...arr.slice(0, i), item, ...arr.slice(i)]` |
+
+<Callout title="Tip">
+  For deeply nested state, [Immer](https://immerjs.github.io/immer/) (built into [Redux Toolkit](/docs/state-management/redux-toolkit)) lets you write "mutating" code that produces immutable updates. Another option is [useReducer](/docs/hooks/use-reducer).
+</Callout>

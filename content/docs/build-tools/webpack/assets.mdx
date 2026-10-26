@@ -1,0 +1,98 @@
+---
+title: Images & Public Path
+description: Import images into JavaScript and control where webpack serves them from.
+---
+
+## Handling images
+
+```js title="src/image.js"
+import kiwi from './kiwi.jpg';
+
+export default function addImage() {
+  const img = document.createElement('img');
+  img.alt = 'Kiwi';
+  img.width = 300;
+  img.src = kiwi; // the URL webpack generated for the file
+  document.body.appendChild(img);
+}
+```
+
+```js title="src/index.js"
+import displayHelloWorld from './helloWorld';
+import addImage from './image';
+
+displayHelloWorld();
+addImage();
+```
+
+### Webpack 5: asset modules (recommended)
+
+Webpack 5 handles files natively. No loader is needed:
+
+```js title="webpack.config.js"
+module.exports = {
+  // ...
+  module: {
+    rules: [
+      {
+        test: /\.(png|jpe?g|gif|svg)$/i,
+        type: 'asset/resource', // emit a separate file and return its URL
+      },
+    ],
+  },
+};
+```
+
+| `type` | Behaviour |
+| --- | --- |
+| `asset/resource` | Copies the file to `dist/` and returns its URL |
+| `asset/inline` | Inlines the file as a base64 data URI |
+| `asset` | Inlines files under 8 KB, otherwise emits a file |
+| `asset/source` | Returns the file's contents as a string |
+
+### Webpack 4: `file-loader` (legacy)
+
+My notes used `file-loader`, which is **deprecated** in webpack 5:
+
+```bash
+npm i file-loader --save-dev
+```
+
+```js
+module: {
+  rules: [
+    {
+      test: /\.(png|jpg)$/,
+      use: ['file-loader'],
+    },
+  ],
+},
+```
+
+## Public path
+
+`output.publicPath` tells webpack **which URL prefix** to put in front of generated asset URLs. Without it, an `index.html` at the project root may look for `kiwi.jpg` in the wrong folder.
+
+```js title="webpack.config.js"
+const path = require('path');
+
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, './dist'),
+    // prefix for asset URLs
+    publicPath: './dist/',
+    // or a CDN / domain:
+    // publicPath: 'https://mywebsite.com/',
+  },
+  mode: 'none',
+  module: {
+    rules: [{ test: /\.(png|jpe?g)$/i, type: 'asset/resource' }],
+  },
+};
+```
+
+<Callout>
+  In webpack 5 the default `publicPath` is `'auto'`, which works out the path at runtime and is usually correct. Set it explicitly when assets are served from a CDN or a sub-folder.
+</Callout>

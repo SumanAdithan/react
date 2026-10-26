@@ -1,0 +1,93 @@
+---
+title: Cancelling Requests (AbortController)
+description: Abort in-flight requests on unmount or when inputs change, to avoid leaks and race conditions.
+---
+
+When a component unmounts, or its inputs change before a request finishes, the old response can still arrive and call `setState`. This causes:
+
+- **Wasted work**: an outdated response is still downloaded and processed.
+- **Race conditions**: a slow response for `id=1` arrives *after* the fast one for `id=2` and overwrites it.
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant C as Component
+    participant API
+    C->>API: fetch user 1 - slow
+    Note over C: id changes to 2
+    C->>API: fetch user 2 - fast
+    API-->>C: user 2
+    API-->>C: user 1 arrives late and overwrites user 2
+    Note over C,API: With AbortController, request 1 is cancelled when the id changes
+"
+/>
+
+`AbortController` cancels the request.
+
+## Example
+
+```jsx
+import { useEffect, useState } from 'react';
+
+function Posts() {
+  const [data, setData] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch('https://jsonplaceholder.typicode.com/posts', { signal: controller.signal })
+      .then((response) => response.json())
+      .then((data) => setData(data))
+      .catch((err) => {
+        if (err.name === 'AbortError') {
+          console.log('Fetch aborted in cleanup'); // expected, not a real error
+        } else {
+          setError('Failed to fetch data');
+        }
+      })
+      .finally(() => setLoading(false));
+
+    // cleanup: runs on unmount, or before the effect re-runs
+    return () => controller.abort();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
+
+  return (
+    <ul>
+      {data.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## How it works
+
+1. Create a controller: `new AbortController()`.
+2. Pass `controller.signal` to `fetch` (or to axios).
+3. Calling `controller.abort()` rejects the pending promise with an `AbortError`.
+4. Ignore `AbortError` in your `catch`. It means you cancelled on purpose.
+
+## With changing inputs
+
+```jsx
+useEffect(() => {
+  const controller = new AbortController();
+
+  fetch(`/api/search?q=${query}`, { signal: controller.signal })
+    .then((r) => r.json())
+    .then(setResults)
+    .catch((err) => err.name !== 'AbortError' && setError(err));
+
+  return () => controller.abort(); // aborts the previous search when query changes
+}, [query]);
+```
+
+<Callout>
+  In development, [StrictMode](/docs/getting-started/project-structure#the-entry-point) mounts, unmounts and remounts components, so you'll see one aborted request in the Network tab. That's expected, and it shows your cleanup works.
+</Callout>

@@ -1,0 +1,101 @@
+---
+title: Rendering & Lifecycle
+description: When components render, mount, update and unmount, and how class lifecycle methods map to hooks.
+---
+
+## The three phases
+
+1. **Trigger**: a render is triggered by the initial `root.render()` or by a state update (in this component, or in a parent).
+2. **Render**: React calls your component function to get the new JSX. This must be **pure**: no side effects.
+3. **Commit**: React applies the differences to the DOM, then runs effects.
+
+<Mermaid
+  chart="
+flowchart LR
+    T[Trigger: setState or parent render] --> R[Render: call the component]
+    R --> D[Reconcile: diff]
+    D --> C[Commit: update the DOM]
+    C --> L[useLayoutEffect]
+    L --> P[Browser paints]
+    P --> E[useEffect]
+"
+/>
+
+## What causes a re-render?
+
+A component re-renders when:
+
+- its **own state** changes,
+- its **parent re-renders** (even if the props didn't change, unless it's wrapped in [`memo`](/docs/advanced/performance)),
+- a **context** it reads changes.
+
+Changing a prop object from outside, a ref, or a normal variable does **not** trigger a render.
+
+## Component lifecycle
+
+Every component instance goes through:
+
+| Phase | Meaning | Hook equivalent |
+| --- | --- | --- |
+| **Mount** | First appears on screen | `useEffect(() => { ... }, [])` |
+| **Update** | Re-renders with new props or state | `useEffect(() => { ... }, [deps])` |
+| **Unmount** | Removed from screen | The cleanup function returned from `useEffect` |
+
+<Mermaid
+  chart="
+stateDiagram-v2
+    [*] --> Mounted: first render, then effects run
+    Mounted --> Updated: state, props or context change
+    Updated --> Updated: re-render, cleanup, then effect again
+    Mounted --> Unmounted: removed from the tree
+    Updated --> Unmounted: removed from the tree
+    Unmounted --> [*]: cleanups run
+"
+/>
+
+## Class lifecycle methods → hooks
+
+```jsx
+class Timer extends React.Component {
+  componentDidMount() {
+    this.id = setInterval(this.tick, 1000);
+  }
+  componentDidUpdate(prevProps) {
+    if (prevProps.userId !== this.props.userId) this.load();
+  }
+  componentWillUnmount() {
+    clearInterval(this.id);
+  }
+  render() { /* ... */ }
+}
+```
+
+```jsx
+function Timer({ userId }) {
+  useEffect(() => {
+    const id = setInterval(tick, 1000);  // componentDidMount
+    return () => clearInterval(id);      // componentWillUnmount
+  }, []);
+
+  useEffect(() => {
+    load(userId);                        // componentDidUpdate for userId
+  }, [userId]);
+}
+```
+
+| Class method | Hook |
+| --- | --- |
+| `constructor` / `this.state` | `useState` |
+| `componentDidMount` | `useEffect(fn, [])` |
+| `componentDidUpdate` | `useEffect(fn, [deps])` |
+| `componentWillUnmount` | `useEffect` cleanup |
+| `shouldComponentUpdate` / `PureComponent` | `React.memo` |
+| `componentDidCatch` / `getDerivedStateFromError` | No hook. Use an [Error Boundary](/docs/advanced/error-boundaries) |
+
+## Resetting state with `key`
+
+Changing a component's `key` makes React unmount the old instance and mount a fresh one with new state:
+
+```jsx
+<ProfileForm key={userId} userId={userId} />
+```

@@ -1,0 +1,43 @@
+---
+title: Hooks Overview
+description: What hooks are, the rules they follow, and which hook to use when.
+---
+
+**Hooks** are functions starting with `use` that let function components "hook into" React features: state, lifecycle, context, refs and more. They were introduced in **React 16.8** and replaced class components for almost every use case.
+
+## Rules of hooks
+
+<Callout type="error" title="Two rules you must follow">
+  1. **Only call hooks at the top level** of a component or custom hook. Never inside loops, conditions, nested functions, or after an early `return`.
+  2. **Only call hooks from React functions**: components or [custom hooks](/docs/hooks/custom-hooks), not regular JavaScript functions.
+</Callout>
+
+React identifies each hook by its **call order**. If a condition skips a hook on one render, every hook after it gets the wrong state.
+
+```jsx
+// ❌ conditional hook
+if (user) {
+  const [name, setName] = useState(user.name);
+}
+
+// ✅ always call it; put the condition inside
+const [name, setName] = useState(user?.name ?? '');
+```
+
+Install `eslint-plugin-react-hooks` (included in the Vite and Next.js templates) to catch these mistakes and missing dependencies automatically.
+
+## Which hook when?
+
+| Need | Hook |
+| --- | --- |
+| Data that changes and updates the UI | [`useState`](/docs/hooks/use-state) |
+| Complex state with many transitions | [`useReducer`](/docs/hooks/use-reducer) |
+| Sync with something outside React (API, timer, DOM, subscription) | [`useEffect`](/docs/hooks/use-effect) |
+| Measure the DOM before the browser paints | [`useLayoutEffect`](/docs/hooks/use-layout-effect) |
+| Access a DOM node, or keep a value without re-rendering | [`useRef`](/docs/hooks/use-ref) |
+| Cache an expensive calculation | [`useMemo`](/docs/hooks/use-memo) |
+| Keep a function's identity stable between renders | [`useCallback`](/docs/hooks/use-callback) |
+| Read shared data without prop drilling | [`useContext`](/docs/hooks/use-context) |
+| Reuse stateful logic between components | [Custom hooks](/docs/hooks/custom-hooks) |
+| Unique IDs, transitions, deferred values... | [Other hooks](/docs/hooks/other-hooks) |
+| Form actions, optimistic UI, reading promises | [React 19 hooks](/docs/modern-react/react-19) |

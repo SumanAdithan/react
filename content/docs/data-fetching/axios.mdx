@@ -1,0 +1,105 @@
+---
+title: Axios
+description: A promise-based HTTP client with instances, interceptors and automatic JSON handling.
+---
+
+```bash
+npm i axios
+```
+
+## Why axios over fetch?
+
+| | `fetch` | `axios` |
+| --- | --- | --- |
+| JSON parsing | Manual: `await res.json()` | Automatic: `res.data` |
+| Sending JSON | `JSON.stringify` + header | Pass an object |
+| HTTP errors (4xx/5xx) | Resolve; you check `res.ok` | **Reject** automatically |
+| Base URL, default headers | Write a wrapper yourself | `axios.create()` |
+| Interceptors | No | Yes |
+| Built into browsers | Yes | ~13 KB dependency |
+
+## Basic usage
+
+```js
+import axios from 'axios';
+
+const { data } = await axios.get('https://jsonplaceholder.typicode.com/users');
+await axios.post('/users', { name: 'John' });
+await axios.put(`/users/${id}`, user);
+await axios.delete(`/users/${id}`);
+
+// query params
+await axios.get('/posts', { params: { userId: 1, _limit: 10 } }); // → /posts?userId=1&_limit=10
+```
+
+## Creating an instance
+
+Configure the base URL and headers once and reuse them everywhere:
+
+```js title="api/axios.js"
+import axios from 'axios';
+
+const instance = axios.create({
+  baseURL: import.meta.env.VITE_API_URL, // e.g. https://api.example.com
+  timeout: 10_000,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+export default instance;
+```
+
+```js title="api/users.js"
+import api from './axios';
+
+export const getUsers = () => api.get('/users').then((res) => res.data);
+export const getUser = (id) => api.get(`/users/${id}`).then((res) => res.data);
+```
+
+## Interceptors
+
+Run code before every request or after every response, for example to attach an auth token or handle a `401` globally:
+
+```js
+// attach the token to every request
+instance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// handle errors in one place
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+## Error handling
+
+```js
+try {
+  const { data } = await api.get('/users/999');
+} catch (err) {
+  if (err.response) {
+    // the server responded with a non-2xx status
+    console.log(err.response.status, err.response.data);
+  } else if (err.request) {
+    // no response (network error or timeout)
+  }
+}
+```
+
+## Cancelling requests
+
+Axios accepts the same `AbortController` signal as fetch:
+
+```js
+const controller = new AbortController();
+api.get('/users', { signal: controller.signal });
+controller.abort();
+```

@@ -1,0 +1,4 @@
+{
+  "title": "TanStack Query",
+  "pages": ["index", "queries", "mutations", "pagination-and-infinite", "advanced"]
+}

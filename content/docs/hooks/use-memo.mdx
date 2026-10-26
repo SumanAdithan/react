@@ -1,0 +1,95 @@
+---
+title: useMemo
+description: Cache the result of an expensive calculation between renders.
+---
+
+```jsx
+const value = useMemo(() => computeSomething(a, b), [a, b]);
+```
+
+`useMemo` runs the function on the first render and **caches the returned value**. On later renders it returns the cached value unless a dependency has changed.
+
+It's used for **performance**:
+
+1. skipping expensive recalculations, and
+2. keeping object and array **references stable** so effects or `memo` children don't re-run unnecessarily.
+
+## Problem: a slow calculation on every render
+
+In this example, toggling the theme has nothing to do with `number`, but it still re-renders the component, so the slow function runs again and the toggle feels laggy.
+
+```jsx
+import { useState, useMemo, useEffect } from 'react';
+
+function slowFunction(num) {
+  for (let i = 0; i < 1_000_000_000; i++) {} // simulate heavy work
+  return num * 2;
+}
+
+function App() {
+  const [number, setNumber] = useState(0);
+  const [dark, setDark] = useState(false);
+
+  // ❌ without useMemo: runs on EVERY render, including theme toggles
+  // const doubleNumber = slowFunction(number);
+
+  // ✅ only recalculates when `number` changes
+  const doubleNumber = useMemo(() => slowFunction(number), [number]);
+
+  // ✅ keeps the same object reference unless `dark` changes
+  const themeStyles = useMemo(
+    () => ({
+      backgroundColor: dark ? 'black' : 'white',
+      color: dark ? 'white' : 'black',
+    }),
+    [dark]
+  );
+
+  useEffect(() => {
+    console.log('Theme changed'); // runs only when themeStyles actually changes
+  }, [themeStyles]);
+
+  return (
+    <>
+      <input
+        type="number"
+        value={number}
+        onChange={(e) => setNumber(parseInt(e.target.value) || 0)}
+      />
+      <button onClick={() => setDark((curr) => !curr)}>Toggle theme</button>
+      <div style={themeStyles}>{doubleNumber}</div>
+    </>
+  );
+}
+```
+
+### Why `themeStyles` needed `useMemo`
+
+Objects are compared **by reference**. Without `useMemo`, a new `{...}` is created on every render, so `useEffect(..., [themeStyles])` thinks it changed every time:
+
+```js
+{ color: 'red' } === { color: 'red' } // false
+```
+
+## useMemo vs useEffect + state
+
+You could do the same with an effect, but it's worse:
+
+```jsx
+// ❌ an extra state variable, an extra render, and a frame with a stale value
+const [doubleNumber, setDoubleNumber] = useState(0);
+useEffect(() => {
+  setDoubleNumber(slowFunction(number));
+}, [number]);
+```
+
+`useMemo` computes the value **during render**, with no extra state and no extra render.
+
+## When not to use it
+
+- Cheap calculations (filtering 100 items, string concatenation). The memo bookkeeping costs more than it saves.
+- As a **semantic guarantee**. React may throw the cache away; treat it as an optimisation only.
+
+<Callout title="React Compiler">
+  The [React Compiler](/docs/modern-react/react-compiler) inserts memoisation automatically, so in compiled projects you rarely need to write `useMemo` by hand.
+</Callout>

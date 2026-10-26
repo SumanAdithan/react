@@ -1,0 +1,221 @@
+---
+title: React Hook Form
+description: Performant forms with minimal re-renders, built-in validation and Zod integration.
+---
+
+**React Hook Form (RHF)** manages form state, validation and submission. It uses **uncontrolled inputs** registered through refs, so typing **doesn't re-render the whole form** on every keystroke, unlike the [controlled `useState` approach](/docs/fundamentals/forms).
+
+```bash
+npm i react-hook-form
+npm i zod @hookform/resolvers   # for schema validation
+```
+
+## Basic form
+
+```jsx
+import { useForm } from 'react-hook-form';
+
+function SignupForm() {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    defaultValues: { name: '', email: '' },
+  });
+
+  // only called when validation passes; preventDefault is handled for you
+  const onSubmit = async (data) => {
+    await new Promise((r) => setTimeout(r, 1000));
+    console.log(data); // { name: '...', email: '...' }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <input {...register('name', { required: 'Name is required', minLength: { value: 2, message: 'Too short' } })} />
+      {errors.name && <p role="alert">{errors.name.message}</p>}
+
+      <input
+        type="email"
+        {...register('email', {
+          required: 'Email is required',
+          pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' },
+        })}
+      />
+      {errors.email && <p role="alert">{errors.email.message}</p>}
+
+      <button disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Sign up'}</button>
+    </form>
+  );
+}
+```
+
+`register('name')` returns `{ name, ref, onChange, onBlur }`, which you spread onto the input.
+
+### Built-in rules
+
+`required`, `min`, `max`, `minLength`, `maxLength`, `pattern`, and `validate` (a custom function, which can be async):
+
+```jsx
+register('username', {
+  validate: async (value) => (await isUsernameFree(value)) || 'Username is taken',
+});
+```
+
+## With Zod (recommended)
+
+Keep all validation rules in one [Zod schema](/docs/libraries/forms/zod). The same schema gives you TypeScript types and can be reused on the server.
+
+<Mermaid
+  chart="
+flowchart LR
+    I[User types and submits] --> H[handleSubmit]
+    H --> R[zodResolver runs the schema]
+    R -- invalid --> E[formState.errors, messages shown]
+    R -- valid --> S[onSubmit receives typed data]
+"
+/>
+
+```tsx
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z
+  .object({
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    email: z.email('Invalid email'),
+    age: z.number({ error: 'Age is required' }).int().min(18, 'Must be 18+'),
+    password: z.string().min(8, 'At least 8 characters'),
+    confirmPassword: z.string(),
+    country: z.enum(['india', 'australia', 'united states'], { error: 'Pick a country' }),
+    terms: z.literal(true, { error: 'You must accept the terms' }),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
+
+type FormValues = z.infer<typeof schema>;
+
+export function RegisterForm() {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting, isDirty },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    mode: 'onTouched', // validate after a field is first blurred
+  });
+
+  const onSubmit = async (data: FormValues) => {
+    await fetch('/api/register', { method: 'POST', body: JSON.stringify(data) });
+    reset();
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <Field label="Name" error={errors.name?.message}>
+        <input {...register('name')} />
+      </Field>
+      <Field label="Email" error={errors.email?.message}>
+        <input type="email" {...register('email')} />
+      </Field>
+      <Field label="Age" error={errors.age?.message}>
+        {/* valueAsNumber turns the string input into a number before validation */}
+        <input type="number" {...register('age', { valueAsNumber: true })} />
+      </Field>
+      <Field label="Password" error={errors.password?.message}>
+        <input type="password" {...register('password')} />
+      </Field>
+      <Field label="Confirm password" error={errors.confirmPassword?.message}>
+        <input type="password" {...register('confirmPassword')} />
+      </Field>
+      <Field label="Country" error={errors.country?.message}>
+        <select {...register('country')} defaultValue="">
+          <option value="" disabled>Select</option>
+          <option value="india">India</option>
+          <option value="australia">Australia</option>
+          <option value="united states">United States</option>
+        </select>
+      </Field>
+      <label>
+        <input type="checkbox" {...register('terms')} /> I accept the terms
+      </label>
+      {errors.terms && <p role="alert">{errors.terms.message}</p>}
+
+      <button disabled={isSubmitting || !isDirty}>Register</button>
+    </form>
+  );
+}
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label>
+        {label}
+        {children}
+      </label>
+      {error && <p role="alert">{error}</p>}
+    </div>
+  );
+}
+```
+
+## Validation modes
+
+| `mode` | Validates |
+| --- | --- |
+| `onSubmit` (default) | On submit, then on every change after a failed submit |
+| `onBlur` | When a field loses focus |
+| `onChange` | On every change (most re-renders) |
+| `onTouched` | After the first blur, then on every change |
+| `all` | On blur and on change |
+
+## Useful API
+
+| API | Does |
+| --- | --- |
+| `watch('field')` | Subscribes to a value (re-renders on change). `useWatch({ control, name })` scopes the re-render to one component |
+| `setValue('field', value)` | Sets a value from code |
+| `getValues()` | Reads values without subscribing |
+| `reset(values?)` | Resets the form (to new defaults, for example after loading data) |
+| `setError('field', { message })` | Sets an error manually (for example from the server response) |
+| `trigger('field')` | Runs validation on demand |
+| `setFocus('field')` | Focuses a field |
+| `formState` | `errors`, `isDirty`, `isValid`, `isSubmitting`, `isSubmitSuccessful`, `touchedFields`, `dirtyFields` |
+
+### Showing server errors
+
+```jsx
+const onSubmit = async (data) => {
+  const res = await fetch('/api/register', { method: 'POST', body: JSON.stringify(data) });
+  if (res.status === 409) {
+    setError('email', { message: 'This email is already registered' });
+    return;
+  }
+  if (!res.ok) setError('root', { message: 'Something went wrong' });
+};
+
+// render: {errors.root && <p>{errors.root.message}</p>}
+```
+
+### Editing existing data
+
+```jsx
+const { reset } = useForm();
+const { data: user } = useQuery({ queryKey: ['user', id], queryFn: () => getUser(id) });
+
+useEffect(() => {
+  if (user) reset(user); // fill the form once the data arrives
+}, [user, reset]);
+
+// or pass async defaults: useForm({ defaultValues: async () => getUser(id) })
+```
+
+Dynamic field arrays, controlled UI components, and multi-step forms are covered in [Advanced Forms](/docs/libraries/forms/advanced-forms).
+
+<Callout title="Alternative">
+  **TanStack Form** is a newer, fully type-safe form library from the TanStack team. **Formik** was popular earlier but is no longer actively developed.
+</Callout>

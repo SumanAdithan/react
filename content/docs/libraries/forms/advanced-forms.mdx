@@ -1,0 +1,192 @@
+---
+title: Advanced Forms
+description: Dynamic field arrays, controlled UI components, form context and multi-step wizards with React Hook Form.
+---
+
+## Dynamic fields with `useFieldArray`
+
+Add and remove rows at runtime: phone numbers, invoice line items, team members.
+
+```tsx
+import { useFieldArray, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z.object({
+  customer: z.string().min(1, 'Required'),
+  items: z
+    .array(
+      z.object({
+        product: z.string().min(1, 'Required'),
+        qty: z.number().int().min(1, 'Min 1'),
+        price: z.number().min(0),
+      })
+    )
+    .min(1, 'Add at least one item'),
+});
+type Invoice = z.infer<typeof schema>;
+
+export function InvoiceForm() {
+  const { register, control, handleSubmit, watch, formState: { errors } } = useForm<Invoice>({
+    resolver: zodResolver(schema),
+    defaultValues: { customer: '', items: [{ product: '', qty: 1, price: 0 }] },
+  });
+
+  const { fields, append, remove } = useFieldArray({ control, name: 'items' });
+
+  const items = watch('items');
+  const total = items.reduce((sum, i) => sum + (i.qty || 0) * (i.price || 0), 0);
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <input placeholder="Customer" {...register('customer')} />
+
+      {fields.map((field, index) => (
+        // use field.id as the key, NOT the index
+        <div key={field.id}>
+          <input placeholder="Product" {...register(`items.${index}.product`)} />
+          <input type="number" {...register(`items.${index}.qty`, { valueAsNumber: true })} />
+          <input type="number" step="0.01" {...register(`items.${index}.price`, { valueAsNumber: true })} />
+          <button type="button" onClick={() => remove(index)}>✕</button>
+          {errors.items?.[index]?.product && <span>{errors.items[index].product.message}</span>}
+        </div>
+      ))}
+      {errors.items?.root && <p>{errors.items.root.message}</p>}
+
+      <button type="button" onClick={() => append({ product: '', qty: 1, price: 0 })}>
+        + Add item
+      </button>
+      <p>Total: ₹{total.toFixed(2)}</p>
+      <button type="submit">Save invoice</button>
+    </form>
+  );
+}
+```
+
+Other helpers: `prepend`, `insert`, `move`, `swap`, `update`, `replace`.
+
+## Controlled UI components (`Controller`)
+
+`register` works with native inputs. Third-party components that don't expose a ref or a native `onChange` (date pickers, React Select, shadcn `Select`, sliders) need `Controller`:
+
+```tsx
+import { Controller, useForm } from 'react-hook-form';
+import Select from 'react-select';
+
+const options = [
+  { value: 'react', label: 'React' },
+  { value: 'vue', label: 'Vue' },
+];
+
+function SkillsForm() {
+  const { control, handleSubmit } = useForm({ defaultValues: { skill: null } });
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <Controller
+        name="skill"
+        control={control}
+        rules={{ required: 'Pick a skill' }}
+        render={({ field, fieldState }) => (
+          <>
+            <Select {...field} options={options} />
+            {fieldState.error && <p>{fieldState.error.message}</p>}
+          </>
+        )}
+      />
+      <button>Submit</button>
+    </form>
+  );
+}
+```
+
+`field` contains `value`, `onChange`, `onBlur`, `name` and `ref`. The shadcn/ui `<Form>` components wrap this same pattern. See [shadcn/ui](/docs/libraries/ui/shadcn-ui#forms).
+
+## Sharing a form across components (`FormProvider`)
+
+```tsx
+import { FormProvider, useForm, useFormContext } from 'react-hook-form';
+
+function AddressFields() {
+  const { register } = useFormContext(); // no prop drilling
+  return (
+    <>
+      <input {...register('address.city')} placeholder="City" />
+      <input {...register('address.zip')} placeholder="ZIP" />
+    </>
+  );
+}
+
+function CheckoutForm() {
+  const methods = useForm();
+  return (
+    <FormProvider {...methods}>
+      <form onSubmit={methods.handleSubmit(console.log)}>
+        <input {...methods.register('name')} />
+        <AddressFields />
+        <button>Pay</button>
+      </form>
+    </FormProvider>
+  );
+}
+```
+
+## Multi-step wizard
+
+Validate only the current step's fields before moving on:
+
+```tsx
+const steps = [
+  { title: 'Account', fields: ['email', 'password'] },
+  { title: 'Profile', fields: ['name', 'age'] },
+  { title: 'Confirm', fields: [] },
+] as const;
+
+function Wizard() {
+  const [step, setStep] = useState(0);
+  const methods = useForm<FormValues>({ resolver: zodResolver(schema), mode: 'onTouched' });
+
+  const next = async () => {
+    const ok = await methods.trigger(steps[step].fields as any); // validate this step only
+    if (ok) setStep((s) => s + 1);
+  };
+
+  return (
+    <FormProvider {...methods}>
+      <form onSubmit={methods.handleSubmit(submit)}>
+        <h2>{steps[step].title}</h2>
+        {step === 0 && <AccountStep />}
+        {step === 1 && <ProfileStep />}
+        {step === 2 && <Summary />}
+
+        {step > 0 && <button type="button" onClick={() => setStep((s) => s - 1)}>Back</button>}
+        {step < steps.length - 1 ? (
+          <button type="button" onClick={next}>Next</button>
+        ) : (
+          <button type="submit">Finish</button>
+        )}
+      </form>
+    </FormProvider>
+  );
+}
+```
+
+Unmounted step fields keep their values, because RHF's `shouldUnregister` is `false` by default.
+
+## Forms with TanStack Query mutations
+
+```tsx
+const mutation = useMutation({
+  mutationFn: createUser,
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    reset();
+    toast.success('User created');
+  },
+  onError: (err) => setError('root', { message: err.message }),
+});
+
+<form onSubmit={handleSubmit((data) => mutation.mutate(data))}>...</form>;
+```
+
+See [TanStack Query mutations](/docs/libraries/tanstack-query/mutations).

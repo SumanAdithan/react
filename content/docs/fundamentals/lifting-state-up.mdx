@@ -1,0 +1,76 @@
+---
+title: Lifting State Up
+description: Share state between sibling components by moving it to their closest common parent.
+---
+
+When two components need the **same** changing data, move the state to their **closest common parent** and pass it down as props. This is called *lifting state up*.
+
+## Example: synced inputs
+
+```jsx
+import { useState } from 'react';
+
+function TemperatureInput({ label, value, onChange }) {
+  return (
+    <label>
+      {label}
+      <input value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  );
+}
+
+function Converter() {
+  // the shared state lives in the parent
+  const [celsius, setCelsius] = useState('');
+
+  const fahrenheit = celsius === '' ? '' : ((parseFloat(celsius) * 9) / 5 + 32).toFixed(1);
+
+  return (
+    <>
+      <TemperatureInput label="°C" value={celsius} onChange={setCelsius} />
+      <TemperatureInput
+        label="°F"
+        value={fahrenheit}
+        onChange={(f) => setCelsius(f === '' ? '' : (((parseFloat(f) - 32) * 5) / 9).toFixed(1))}
+      />
+    </>
+  );
+}
+```
+
+- **Data flows down**: the parent passes `value`.
+- **Events flow up**: children call `onChange`, and the parent updates its state.
+
+<Mermaid
+  chart="
+flowchart TD
+    C[Converter: owns celsius state]
+    I1[TemperatureInput °C]
+    I2[TemperatureInput °F]
+    C -- value --> I1
+    C -- derived value --> I2
+    I1 -. onChange .-> C
+    I2 -. onChange .-> C
+"
+/>
+
+## Derive, don't duplicate
+
+`fahrenheit` above is **computed** from `celsius` during render, not stored in a second state variable. If a value can be calculated from props or other state, calculate it. Duplicated state gets out of sync.
+
+```jsx
+// ❌ two pieces of state that must be kept in sync
+const [items, setItems] = useState([]);
+const [count, setCount] = useState(0);
+
+// ✅ derive it
+const count = items.length;
+```
+
+## When lifting gets painful
+
+If state has to pass through many layers of components that don't use it (**prop drilling**), consider:
+
+1. [Composition with `children`](/docs/fundamentals/children-and-composition)
+2. [Context](/docs/hooks/use-context)
+3. A [state management library](/docs/state-management/overview)

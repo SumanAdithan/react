@@ -1,0 +1,66 @@
+---
+title: Project Structure
+description: What each file in a new React project does, and how the code becomes something the browser can run.
+---
+
+## A Vite + React project
+
+<Files>
+  <Folder name="my-app" defaultOpen>
+    <Folder name="public">
+      <File name="vite.svg" />
+    </Folder>
+    <Folder name="src" defaultOpen>
+      <Folder name="assets" />
+      <File name="App.css" />
+      <File name="App.jsx" />
+      <File name="index.css" />
+      <File name="main.jsx" />
+    </Folder>
+    <File name="index.html" />
+    <File name="package.json" />
+    <File name="vite.config.js" />
+  </Folder>
+</Files>
+
+| File | Purpose |
+| --- | --- |
+| `index.html` | The single HTML page. It contains `<div id="root"></div>` and loads `src/main.jsx`. |
+| `src/main.jsx` | Entry point. Mounts the root component into `#root`. |
+| `src/App.jsx` | The root component. Your app grows from here. |
+| `public/` | Static files served as-is (favicons, `robots.txt`). |
+| `package.json` | Dependencies and scripts (`dev`, `build`, `preview`). |
+| `vite.config.js` | Build tool configuration. |
+
+## The entry point
+
+```jsx title="src/main.jsx"
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './index.css';
+import App from './App.jsx';
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+```
+
+1. `createRoot` creates a React root attached to the `#root` DOM node.
+2. `.render(<App />)` renders your component tree inside it.
+3. `<StrictMode>` is a development-only helper. It **runs components and effects twice** to surface bugs such as missing effect cleanups. It has no effect in production builds.
+
+<Callout title="Why does my console.log run twice?">
+  That is `StrictMode` in development. It is expected, not a bug.
+</Callout>
+
+## From many files to one bundle
+
+Browsers do not understand JSX, and loading hundreds of separate modules is slow. A **bundler** takes care of both:
+
+- **Transpiles** JSX and modern JavaScript into code browsers can run.
+- **Bundles** your modules (plus CSS and images) into a few optimised files.
+- Runs a **development server** with hot module replacement (HMR), so edits appear instantly.
+
+CRA used **webpack** (you would see `webpack compiled successfully` in the terminal and a single `bundle.js`). Vite uses native ES modules in development and **Rollup/Rolldown** for production builds. See [Build Tools](/docs/build-tools/vite).

@@ -1,0 +1,101 @@
+---
+title: Redux Concepts
+description: What Redux is, when to use it, and how store, actions, dispatch and reducers fit together.
+---
+
+**Redux** is an open-source JavaScript library for managing application state. It's most often used with React, though it works with any UI library. Redux helps you manage **global** state: state needed across many parts of the app.
+
+## When should you use Redux?
+
+- You have a **large amount of state** that is needed in **many places** in the app.
+- The state is **updated frequently** over time.
+- The logic to update that state is **complex**.
+- The app has a **medium or large codebase** and many people work on it.
+
+For small apps, `useState` + Context is usually enough.
+
+## Architecture: one-way data flow
+
+![Redux one-way data flow: View → Actions → State → View](/images/redux/architecture.png)
+
+- **View**: the UI, rendered from the current state.
+- **Actions**: events that describe *something that happened* ("product added", "deposit 10").
+- **State**: the single source of truth that drives the view.
+
+## Parts of Redux
+
+![Store contains State, which defines the UI; the UI triggers Actions, which are sent to the Reducer, which updates the Store](/images/redux/parts.png)
+
+| Part | Role |
+| --- | --- |
+| **Store** | Holds the whole app state in a single object |
+| **State** | The current data |
+| **Action** | A plain object `{ type, payload }` describing what happened |
+| **Dispatch** | The function that sends an action to the store |
+| **Reducer** | A pure function `(state, action) => newState` that computes the next state |
+
+## How Redux works: a bank example
+
+The user clicks **Deposit $10**.
+
+<Steps>
+<Step>
+
+### The UI starts with a balance of $0
+
+![UI with Deposit and Withdraw buttons, balance $0](/images/redux/flow-1.png)
+
+</Step>
+<Step>
+
+### The event handler dispatches an action
+
+Clicking the button triggers an event, and the handler calls `dispatch` with an action:
+
+```js
+dispatch({ type: 'deposit', payload: 10 });
+```
+
+![Dispatch sends the action to the store](/images/redux/flow-2.png)
+
+</Step>
+<Step>
+
+### The reducer computes new state
+
+The store passes the **current state** and the **action** to the reducer, which returns the updated state:
+
+```js
+function balanceReducer(state = 0, action) {
+  switch (action.type) {
+    case 'deposit':
+      return state + action.payload;
+    case 'withdraw':
+      return state - action.payload;
+    default:
+      return state;
+  }
+}
+```
+
+![Reducer updates the state](/images/redux/flow-3.png)
+
+</Step>
+<Step>
+
+### The UI re-renders
+
+Components subscribed to the balance re-render. The balance is now **$10**.
+
+![UI now shows $10](/images/redux/flow-4.png)
+
+</Step>
+</Steps>
+
+## The three principles
+
+1. **Single source of truth**: the whole app state lives in one store.
+2. **State is read-only**: the only way to change it is to dispatch an action.
+3. **Changes are made with pure functions**: reducers take the previous state and an action, and return a new state without mutation or side effects.
+
+Next: [implementing Redux with Redux Toolkit](/docs/state-management/redux-toolkit).

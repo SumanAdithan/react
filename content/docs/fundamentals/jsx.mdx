@@ -1,0 +1,83 @@
+---
+title: JSX
+description: JavaScript XML, the HTML-like syntax used to describe UI in React.
+---
+
+```jsx
+<div className="App">
+  <header className="App-header">
+    <img src={logo} className="App-logo" alt="logo" />
+    <p>
+      Edit <code>src/App.jsx</code> and save to reload.
+    </p>
+    <a className="App-link" href="https://react.dev" target="_blank" rel="noopener noreferrer">
+      Learn React
+    </a>
+  </header>
+</div>
+```
+
+This looks like HTML, but it is **JSX (JavaScript XML)**, a syntax extension that compiles to plain JavaScript function calls:
+
+```jsx
+// what you write
+const el = <h1 className="title">Hello</h1>;
+
+// roughly what the compiler produces
+const el = jsx('h1', { className: 'title', children: 'Hello' });
+```
+
+## JSX vs HTML differences
+
+| HTML | JSX | Why |
+| --- | --- | --- |
+| `class="..."` | `className="..."` | `class` is a reserved word in JavaScript |
+| `for="..."` | `htmlFor="..."` | `for` is a reserved word |
+| `onclick="..."` | `onClick={fn}` | Attributes are camelCase and take functions, not strings |
+| `style="color: red"` | `style={{ color: 'red' }}` | `style` takes an object |
+| `<br>`, `<img>` | `<br />`, `<img />` | Every tag must be closed |
+| `<!-- comment -->` | `{/* comment */}` | Comments are JavaScript expressions |
+
+## Embedding JavaScript with `{}`
+
+Curly braces open a "window" into JavaScript. Any **expression** (something that produces a value) works:
+
+```jsx
+const name = 'John';
+const user = { avatar: '/john.png' };
+
+return (
+  <>
+    <h1>Hello, {name}!</h1>
+    <p>2 + 2 = {2 + 2}</p>
+    <p>{name.toUpperCase()}</p>
+    <img src={user.avatar} alt={name} />
+  </>
+);
+```
+
+<Callout type="warn">
+  Statements such as `if`, `for` and `switch` cannot go inside `{}`. Use ternaries, `&&` or `.map()` instead. See [Conditional Rendering](/docs/fundamentals/conditional-rendering) and [Lists](/docs/fundamentals/lists-and-keys).
+</Callout>
+
+## Rules of JSX
+
+1. **Return a single root element.** Wrap siblings in a parent `<div>` or a **Fragment** `<>...</>`, which adds nothing to the DOM.
+2. **Close all tags**, including self-closing ones: `<input />`.
+3. **Use camelCase** for most attributes: `tabIndex`, `onChange`, `strokeWidth`. Exceptions are `aria-*` and `data-*`.
+4. **Component names start with a capital letter.** `<car />` is treated as an HTML tag; `<Car />` is your component.
+
+```jsx
+function Garage() {
+  return (
+    <>
+      <h1>Who lives in my garage?</h1>
+      <Car />
+    </>
+  );
+}
+```
+
+<Callout title="Fragments with keys">
+  The short `<>` syntax cannot take props. When you need a `key` (for example in a list), use `<Fragment key={id}>` imported from `react`.
+</Callout>

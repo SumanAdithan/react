@@ -1,0 +1,102 @@
+---
+title: User Events
+description: Simulate clicks and typing with user-event, and assert on mock functions.
+---
+
+`@testing-library/user-event` simulates **real user interactions**: a click fires pointer down, mouse down, focus, mouse up and click events in order, much like a real browser.
+
+```js
+import userEvent from '@testing-library/user-event';
+```
+
+<Callout title="Recommended pattern">
+  Call `const user = userEvent.setup()` at the start of each test, then `await user.click(...)`. Every user-event method returns a promise, so always `await` it.
+</Callout>
+
+## Clicking
+
+```jsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
+import Button from '../components/Button';
+
+test('simulates button click', async () => {
+  const user = userEvent.setup();
+  const handleClick = vi.fn(); // a mock function that records its calls
+
+  render(<Button label="Click" onClick={handleClick} />);
+  await user.click(screen.getByText('Click'));
+
+  expect(handleClick).toHaveBeenCalledTimes(1);
+});
+```
+
+## Typing
+
+```jsx
+test('simulates typing into input', async () => {
+  const user = userEvent.setup();
+  render(<Input label="Email" />);
+
+  const input = screen.getByLabelText('Email');
+  await user.type(input, 'test@example.com');
+
+  expect(input).toHaveValue('test@example.com');
+});
+```
+
+## Other interactions
+
+```js
+await user.clear(input);
+await user.selectOptions(screen.getByRole('combobox'), 'india');
+await user.click(screen.getByRole('checkbox'));
+await user.keyboard('{Enter}');
+await user.tab();                         // move focus
+await user.hover(element);
+await user.upload(fileInput, new File(['x'], 'a.png', { type: 'image/png' }));
+```
+
+## Full login flow
+
+Using the [Login component](/docs/testing/first-test#testing-a-login-component):
+
+```jsx
+test('shows success message for valid credentials', async () => {
+  const user = userEvent.setup();
+  render(<Login />);
+
+  await user.type(screen.getByLabelText('Email'), 'john@gmail.com');
+  await user.type(screen.getByLabelText('Password'), 'test@123');
+  await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+  expect(screen.getByText('loading')).toBeInTheDocument();
+  // findBy waits for the setTimeout to finish
+  expect(await screen.findByText('Successfully logged in!', {}, { timeout: 2000 })).toBeInTheDocument();
+});
+
+test('shows error for invalid credentials', async () => {
+  const user = userEvent.setup();
+  render(<Login />);
+
+  await user.type(screen.getByLabelText('Email'), 'wrong@gmail.com');
+  await user.type(screen.getByLabelText('Password'), 'nope');
+  await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+  expect(await screen.findByText('Invalid credentials!', {}, { timeout: 2000 })).toBeInTheDocument();
+});
+```
+
+## Mock function matchers
+
+| Matcher | Checks |
+| --- | --- |
+| `toHaveBeenCalled()` | Called at least once |
+| `toHaveBeenCalledTimes(n)` | Called exactly `n` times |
+| `toHaveBeenCalledWith(arg1, ...)` | Called with these arguments |
+| `toHaveBeenLastCalledWith(...)` | Arguments of the last call |
+
+## fireEvent vs userEvent
+
+`fireEvent.click(el)` (from `@testing-library/react`) dispatches **one** DOM event. `userEvent` simulates the full sequence a real user produces (focus, keydown, input, keyup...). Prefer `userEvent`.

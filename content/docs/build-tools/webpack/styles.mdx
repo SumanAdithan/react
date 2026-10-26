@@ -1,0 +1,142 @@
+---
+title: CSS, Sass & Extracting CSS
+description: Import stylesheets into JavaScript, compile Sass, and output a separate CSS file for production.
+---
+
+## Handling CSS
+
+```bash
+npm i style-loader css-loader --save-dev
+```
+
+- **css-loader** reads the `.css` file and resolves `@import` and `url()`.
+- **style-loader** injects the CSS into the page with a `<style>` tag at runtime.
+
+Loaders in `use: [...]` run **right to left** (bottom to top): `css-loader` first, then `style-loader`.
+
+<Tabs items={['webpack.config.js', 'ExampleButton.js', 'ExampleButton.css', 'index.js']}>
+  <Tab value="webpack.config.js">
+    ```js title="webpack.config.js"
+    module.exports = {
+      // ...entry, output
+      module: {
+        rules: [
+          { test: /\.(png|jpe?g)$/i, type: 'asset/resource' },
+          {
+            test: /\.css$/,
+            use: ['style-loader', 'css-loader'],
+          },
+        ],
+      },
+    };
+    ```
+  </Tab>
+  <Tab value="ExampleButton.js">
+    ```js title="src/components/ExampleButton.js"
+    import './ExampleButton.css';
+
+    class ExampleButton {
+      render() {
+        const button = document.createElement('button');
+        button.innerHTML = 'Press me';
+        button.classList.add('green-button');
+        document.querySelector('body').append(button);
+      }
+    }
+
+    export default ExampleButton;
+    ```
+  </Tab>
+  <Tab value="ExampleButton.css">
+    ```css title="src/components/ExampleButton.css"
+    .green-button {
+      color: white;
+      background: green;
+      outline: none;
+      padding: 7px 15px;
+      font-size: 20px;
+    }
+    ```
+  </Tab>
+  <Tab value="index.js">
+    ```js title="src/index.js"
+    import ExampleButton from './components/ExampleButton';
+
+    const exampleButton = new ExampleButton();
+    exampleButton.render();
+    ```
+  </Tab>
+</Tabs>
+
+## Handling Sass / SCSS
+
+```bash
+npm i sass sass-loader --save-dev
+```
+
+```js title="webpack.config.js"
+{
+  test: /\.scss$/,
+  use: [
+    'style-loader',
+    'css-loader',
+    'sass-loader', // compiles SCSS → CSS (uses the `sass` package automatically)
+  ],
+},
+```
+
+## Extracting CSS into a file
+
+`style-loader` puts CSS inside the JS bundle, so styles only apply **after the JS runs**, which causes a flash of unstyled content. For production, write CSS to a separate `.css` file instead:
+
+```bash
+npm i mini-css-extract-plugin --save-dev
+```
+
+```js title="webpack.config.js"
+const path = require('path');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, './dist'),
+    publicPath: './dist/',
+  },
+  mode: 'none',
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: [MiniCssExtractPlugin.loader, 'css-loader'], // replaces style-loader
+      },
+      {
+        test: /\.scss$/,
+        use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
+      },
+    ],
+  },
+  plugins: [new MiniCssExtractPlugin({ filename: 'style.css' })],
+};
+```
+
+Link the extracted file in HTML:
+
+```html title="index.html"
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Document</title>
+    <link rel="stylesheet" href="./dist/style.css" />
+  </head>
+  <body>
+    <script src="./dist/bundle.js"></script>
+  </body>
+</html>
+```
+
+<Callout type="warn" title="Correction to my notes">
+  My notes had `use: [MiniCssExtractPlugin, 'css-loader']` for `.css`. It must be **`MiniCssExtractPlugin.loader`**; the plugin class itself isn't a loader.
+</Callout>

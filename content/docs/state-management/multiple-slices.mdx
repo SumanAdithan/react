@@ -1,0 +1,70 @@
+---
+title: Multiple Slices
+description: Split state into feature slices and combine them into a root reducer.
+---
+
+Real apps have several features, each with its own slice: `user`, `cart`, `countries` and so on.
+
+## Option 1: pass an object to `configureStore`
+
+```js title="store.js"
+import { configureStore } from '@reduxjs/toolkit';
+import countriesReducer from './slices/countriesSlice';
+import countryReducer from './slices/countrySlice';
+
+export const store = configureStore({
+  reducer: {
+    countries: countriesReducer,
+    country: countryReducer,
+  },
+});
+```
+
+`configureStore` calls `combineReducers` for you.
+
+## Option 2: a separate root reducer
+
+Useful when the reducer map gets large, or when you need the root reducer elsewhere (in tests, or to reset all state on logout):
+
+```js title="rootReducer.js"
+import { combineReducers } from '@reduxjs/toolkit';
+import countriesReducer from './slices/countriesSlice';
+import countryReducer from './slices/countrySlice';
+
+const rootReducer = combineReducers({
+  countries: countriesReducer,
+  country: countryReducer,
+});
+
+export default rootReducer;
+```
+
+```js title="store.js"
+import { configureStore } from '@reduxjs/toolkit';
+import rootReducer from './rootReducer';
+
+export const store = configureStore({
+  reducer: rootReducer,
+});
+```
+
+## Resulting state shape
+
+```js
+store.getState();
+// {
+//   countries: { list: [...], status: 'idle' },
+//   country:   { countryData: null, weatherData: null }
+// }
+```
+
+Each component selects its own slice:
+
+```js
+const countries = useSelector((state) => state.countries.list);
+const weather = useSelector((state) => state.country.weatherData);
+```
+
+<Callout title="Organising files">
+  For bigger apps, group by **feature** instead of by type: `features/cart/cartSlice.js`, `features/cart/CartPage.jsx` and so on.
+</Callout>

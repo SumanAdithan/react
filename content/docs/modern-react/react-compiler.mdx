@@ -1,0 +1,75 @@
+---
+title: React Compiler
+description: A build-time tool that memoises your components automatically.
+---
+
+The **React Compiler** (stable since October 2025) is a build-time plugin that analyses your components and hooks and **inserts memoisation automatically**. That's the work you'd otherwise do with [`memo`](/docs/advanced/performance), [`useMemo`](/docs/hooks/use-memo) and [`useCallback`](/docs/hooks/use-callback).
+
+```jsx
+// what you write
+function TodoList({ todos, filter }) {
+  const visible = todos.filter((t) => t.status === filter);
+  const handleClick = (id) => toggle(id);
+  return <List items={visible} onClick={handleClick} />;
+}
+
+// what the compiler effectively produces:
+// `visible` is recomputed only when todos or filter change,
+// `handleClick` keeps its identity, and <List> skips needless re-renders
+```
+
+## Setup
+
+<Tabs items={['Vite', 'Next.js']}>
+  <Tab value="Vite">
+    ```bash
+    npm i -D babel-plugin-react-compiler
+    ```
+
+    ```js title="vite.config.js"
+    import { defineConfig } from 'vite';
+    import react from '@vitejs/plugin-react';
+
+    export default defineConfig({
+      plugins: [
+        react({
+          babel: { plugins: ['babel-plugin-react-compiler'] },
+        }),
+      ],
+    });
+    ```
+  </Tab>
+  <Tab value="Next.js">
+    ```bash
+    npm i -D babel-plugin-react-compiler
+    ```
+
+    ```js title="next.config.js"
+    module.exports = {
+      reactCompiler: true,
+    };
+    ```
+  </Tab>
+</Tabs>
+
+Components optimised by the compiler show a **"Memo ✨"** badge in [React DevTools](/docs/getting-started/dev-tools).
+
+## Requirements
+
+The compiler assumes your code follows the **Rules of React**:
+
+- Components and hooks are **pure** during render.
+- Props and state are **never mutated**.
+- Hooks follow the [rules of hooks](/docs/hooks).
+
+Components that break these rules are skipped, not miscompiled. `eslint-plugin-react-hooks` (v6+) includes compiler-powered lint rules that flag them.
+
+## Should I still write useMemo and useCallback?
+
+- **New code with the compiler enabled:** mostly no. Write plain code.
+- **Existing code:** leave existing memoisation in place; the compiler works alongside it.
+- **Without the compiler:** yes, where profiling shows it helps.
+
+<Callout title="Escape hatch">
+  Add the `'use no memo'` directive at the top of a function to opt it out of compilation while you debug.
+</Callout>

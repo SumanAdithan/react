@@ -1,0 +1,140 @@
+---
+title: React with TypeScript
+description: Type props, state, events, refs, context and hooks.
+---
+
+Start a TypeScript project with `npm create vite@latest my-app -- --template react-ts`. Component files use the `.tsx` extension.
+
+## Props
+
+```tsx
+type ButtonProps = {
+  label: string;
+  variant?: 'primary' | 'danger';          // optional, with a union of allowed values
+  onClick: () => void;
+  children?: React.ReactNode;              // anything renderable
+};
+
+function Button({ label, variant = 'primary', onClick }: ButtonProps) {
+  return (
+    <button className={variant} onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+```
+
+### Extending native element props
+
+```tsx
+type InputProps = React.ComponentProps<'input'> & { label: string };
+
+function Input({ label, ...rest }: InputProps) {
+  return (
+    <label>
+      {label}
+      <input {...rest} />
+    </label>
+  );
+}
+```
+
+## State
+
+```tsx
+const [count, setCount] = useState(0);                 // inferred: number
+const [user, setUser] = useState<User | null>(null);   // explicit when it starts as null
+const [todos, setTodos] = useState<Todo[]>([]);        // empty array needs a type
+```
+
+## Events
+
+```tsx
+function Form() {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log(e.target.value);
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+  };
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {};
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input onChange={handleChange} />
+      <button onClick={handleClick}>Send</button>
+    </form>
+  );
+}
+```
+
+<Callout title="Tip">
+  If you're unsure of an event type, write the handler inline (`onChange={(e) => ...}`) and hover `e` in your editor.
+</Callout>
+
+## Refs
+
+```tsx
+const inputRef = useRef<HTMLInputElement>(null);       // DOM ref
+const timerRef = useRef<number | null>(null);          // mutable value
+
+inputRef.current?.focus();
+```
+
+## Reducers
+
+```tsx
+type State = { count: number };
+type Action = { type: 'increment' } | { type: 'set'; payload: number };
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'increment':
+      return { count: state.count + 1 };
+    case 'set':
+      return { count: action.payload }; // payload is known to be a number here
+  }
+}
+```
+
+## Context
+
+```tsx
+type Theme = 'light' | 'dark';
+type ThemeContextValue = { theme: Theme; toggleTheme: () => void };
+
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+export function useTheme() {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used inside ThemeProvider');
+  return ctx; // type: ThemeContextValue (null excluded)
+}
+```
+
+## Generic components
+
+```tsx
+type ListProps<T> = {
+  items: T[];
+  renderItem: (item: T) => React.ReactNode;
+};
+
+function List<T>({ items, renderItem }: ListProps<T>) {
+  return <ul>{items.map(renderItem)}</ul>;
+}
+
+<List items={[{ id: 1, name: 'John' }]} renderItem={(u) => <li key={u.id}>{u.name}</li>} />;
+```
+
+## Useful types
+
+| Type | Use for |
+| --- | --- |
+| `React.ReactNode` | `children` and anything renderable |
+| `React.ComponentProps<'button'>` | All props of a native element |
+| `React.ComponentProps<typeof MyComp>` | Props of another component |
+| `React.CSSProperties` | `style` objects |
+| `React.Dispatch<React.SetStateAction<T>>` | A `setState` function passed as a prop |

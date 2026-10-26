@@ -1,0 +1,84 @@
+---
+title: Babel (ES6+ to ES5 and JSX)
+description: Transpile modern JavaScript and JSX so older browsers can run it.
+---
+
+**Babel** is a JavaScript compiler. With webpack, `babel-loader` runs every `.js` file through Babel to:
+
+- turn modern syntax (arrow functions, `let` and `const`, classes, optional chaining) into older syntax for older browsers, and
+- turn **JSX** into JavaScript. This is what makes React work with webpack.
+
+```js
+// input (ES6)
+const add = (a, b) => {
+  let c = a + b;
+  console.log(c);
+};
+
+// output (ES5)
+var add = function add(a, b) {
+  var c = a + b;
+  console.log(c);
+};
+```
+
+## Installation
+
+```bash
+npm install babel-loader @babel/core @babel/preset-env --save-dev
+# for React / JSX
+npm install @babel/preset-react --save-dev
+```
+
+## Configuration
+
+<Tabs items={['webpack.config.js', 'babel.config.js']}>
+  <Tab value="webpack.config.js">
+    ```js title="webpack.config.js"
+    module.exports = {
+      // ...
+      module: {
+        rules: [
+          {
+            test: /\.(js|jsx)$/,
+            exclude: /node_modules/, // don't transpile dependencies (slow, and unnecessary)
+            loader: 'babel-loader',
+          },
+        ],
+      },
+      resolve: { extensions: ['.js', '.jsx'] },
+    };
+    ```
+  </Tab>
+  <Tab value="babel.config.js">
+    ```js title="babel.config.js (or .babelrc.js)"
+    module.exports = function (api) {
+      api.cache(true); // cache the config between builds
+      return {
+        presets: [
+          '@babel/preset-env',                              // modern JS → target browsers
+          ['@babel/preset-react', { runtime: 'automatic' }], // JSX, no need to import React
+        ],
+      };
+    };
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="warn" title="Typo in my notes">
+  My notes had `api.catch(true)`. The correct method is **`api.cache(true)`**. `catch` throws *"api.catch is not a function"*.
+</Callout>
+
+## Target browsers
+
+`@babel/preset-env` reads your target browsers from a **browserslist** entry in `package.json`, and only transforms what those browsers need:
+
+```json title="package.json"
+{
+  "browserslist": ["> 0.5%", "last 2 versions", "not dead"]
+}
+```
+
+<Callout>
+  Vite uses **esbuild** (and SWC with `@vitejs/plugin-react-swc`) instead of Babel for much faster builds, but the idea is the same.
+</Callout>

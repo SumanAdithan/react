@@ -1,0 +1,151 @@
+---
+title: Other Built-in Hooks
+description: useId, useTransition, useDeferredValue, useImperativeHandle, useSyncExternalStore and useDebugValue.
+---
+
+These hooks are used less often, but they solve specific problems well.
+
+## useId
+
+Generates a **unique, stable ID**, consistent between server and client. Use it to connect labels to inputs in reusable components:
+
+```jsx
+import { useId } from 'react';
+
+function TextField({ label }) {
+  const id = useId();
+  return (
+    <>
+      <label htmlFor={id}>{label}</label>
+      <input id={id} />
+    </>
+  );
+}
+```
+
+<Callout type="warn">Don't use `useId` for list keys. Keys should come from your data.</Callout>
+
+## useTransition
+
+Marks a state update as **non-urgent**, so urgent updates such as typing stay responsive while React renders the slow part in the background.
+
+```jsx
+import { useState, useTransition } from 'react';
+
+function TabContainer() {
+  const [tab, setTab] = useState('about');
+  const [isPending, startTransition] = useTransition();
+
+  function selectTab(next) {
+    startTransition(() => {
+      setTab(next); // the slow tab render can be interrupted
+    });
+  }
+
+  return (
+    <>
+      <TabButtons onSelect={selectTab} />
+      {isPending && <Spinner />}
+      {tab === 'posts' ? <SlowPostsList /> : <About />}
+    </>
+  );
+}
+```
+
+In React 19 the function passed to `startTransition` can be **async**. See [Actions](/docs/modern-react/react-19#actions-and-forms).
+
+## useDeferredValue
+
+Gives you a **lagging copy** of a value. React renders the urgent UI with the new value first, then re-renders the expensive part with the deferred one.
+
+```jsx
+import { useDeferredValue, useState } from 'react';
+
+function Search() {
+  const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
+  const isStale = query !== deferredQuery;
+
+  return (
+    <>
+      <input value={query} onChange={(e) => setQuery(e.target.value)} />
+      <div style={{ opacity: isStale ? 0.5 : 1 }}>
+        <SlowResults query={deferredQuery} /> {/* wrap SlowResults in memo */}
+      </div>
+    </>
+  );
+}
+```
+
+| | `useTransition` | `useDeferredValue` |
+| --- | --- | --- |
+| You control | The **state update** | Only the **value** (it comes from props, for example) |
+| Gives you | `isPending` flag | Stale value you can compare |
+
+## useImperativeHandle
+
+Customises what a parent gets when it holds a [ref](/docs/hooks/use-ref) to your component, so you can expose a small API instead of the raw DOM node:
+
+```jsx
+import { useImperativeHandle, useRef } from 'react';
+
+function VideoPlayer({ ref, src }) {
+  const videoRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    play: () => videoRef.current.play(),
+    pause: () => videoRef.current.pause(),
+  }));
+
+  return <video ref={videoRef} src={src} />;
+}
+
+// parent
+const playerRef = useRef(null);
+<VideoPlayer ref={playerRef} src="/movie.mp4" />;
+<button onClick={() => playerRef.current.play()}>Play</button>;
+```
+
+## useSyncExternalStore
+
+Subscribes to an **external store** (browser APIs, a non-React state library) safely under concurrent rendering:
+
+```jsx
+import { useSyncExternalStore } from 'react';
+
+function subscribe(callback) {
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
+}
+
+function useOnlineStatus() {
+  return useSyncExternalStore(subscribe, () => navigator.onLine);
+}
+
+function StatusBar() {
+  const isOnline = useOnlineStatus();
+  return <p>{isOnline ? '✅ Online' : '❌ Offline'}</p>;
+}
+```
+
+Redux and Zustand use this hook internally.
+
+## useDebugValue
+
+Adds a label to a custom hook in [React DevTools](/docs/getting-started/dev-tools):
+
+```jsx
+function useOnlineStatus() {
+  const isOnline = useSyncExternalStore(subscribe, () => navigator.onLine);
+  useDebugValue(isOnline ? 'Online' : 'Offline');
+  return isOnline;
+}
+```
+
+## React 19 hooks
+
+`use`, `useActionState`, `useFormStatus` and `useOptimistic` are covered in [React 19](/docs/modern-react/react-19).

@@ -1,0 +1,79 @@
+---
+title: React Router Setup
+description: Install React Router and map URLs to components.
+---
+
+**React Router** handles **client-side routing**: changing the URL and the rendered page **without a full browser reload**. Avoiding the reload matters because a full reload wipes all React state back to its initial values.
+
+## Installation
+
+```bash
+npm i react-router-dom
+```
+
+<Callout title="Version note">
+  In **React Router v7**, everything is exported from the `react-router` package and `react-router-dom` simply re-exports it. Both import paths work. These docs use `react-router-dom` to match my notes; new projects can `npm i react-router` and import from `'react-router'`.
+</Callout>
+
+## Defining routes
+
+```jsx title="App.jsx"
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Home from './pages/Home';
+import About from './pages/About';
+import Contact from './pages/Contact';
+import NotFound from './pages/NotFound';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* element can be a component or any JSX */}
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact-us" element={<Contact />} />
+        {/* catch-all 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+```
+
+| Component | Role |
+| --- | --- |
+| `<BrowserRouter>` | Wraps the app and keeps the UI in sync with the URL (using the History API). |
+| `<Routes>` | Looks at the current URL and renders the **best matching** `<Route>`. |
+| `<Route path element>` | Maps a path to the element to render. |
+
+## Alternative: data router (`createBrowserRouter`)
+
+React Router also offers an object-based configuration that unlocks **loaders** (fetch data before rendering) and **actions** (handle form submissions):
+
+```jsx title="main.jsx"
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <RootLayout />,
+    errorElement: <ErrorPage />,
+    children: [
+      { index: true, element: <Home /> },
+      {
+        path: 'users/:id',
+        element: <User />,
+        loader: ({ params }) => fetch(`/api/users/${params.id}`), // read with useLoaderData()
+      },
+    ],
+  },
+]);
+
+createRoot(document.getElementById('root')).render(<RouterProvider router={router} />);
+```
+
+<Callout title="Deploying SPAs">
+  On static hosts, a direct visit to `/about` returns a 404 because no `about.html` file exists. Configure the host to serve `index.html` for all routes (a rewrite or fallback rule). See [Hosting](/docs/deployment/hosting).
+</Callout>

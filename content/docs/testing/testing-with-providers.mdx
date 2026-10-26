@@ -1,0 +1,128 @@
+---
+title: Testing with Context, Router & Redux
+description: Wrap components in the providers they need, using a custom render helper.
+---
+
+Components that use Context, React Router, Redux or TanStack Query **throw** when rendered alone, because their provider is missing. Wrap them in tests just as you do in the app.
+
+## Context
+
+```jsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ThemeProvider } from '../ThemeContext';
+import User from '../User';
+
+test('toggles the theme', async () => {
+  const user = userEvent.setup();
+
+  render(
+    <ThemeProvider>
+      <User />
+    </ThemeProvider>
+  );
+
+  // the themed style is on the <div> that wraps the heading
+  const card = screen.getByRole('heading', { name: 'User component' }).parentElement;
+  expect(card).toHaveStyle({ background: 'white' });
+
+  await user.click(screen.getByRole('button', { name: /toggle theme/i }));
+  expect(card).toHaveStyle({ background: 'black' });
+});
+```
+
+## React Router
+
+Use `MemoryRouter` to control the starting URL:
+
+```jsx
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+
+test('shows the user id from the URL', () => {
+  render(
+    <MemoryRouter initialEntries={['/user/42']}>
+      <Routes>
+        <Route path="/user/:id" element={<User />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  expect(screen.getByText('42')).toBeInTheDocument();
+});
+```
+
+## Redux
+
+Create a **fresh store per test** so tests don't leak state into each other:
+
+```jsx
+import { configureStore } from '@reduxjs/toolkit';
+import { Provider } from 'react-redux';
+import todoReducer from '../slices/todoSlice';
+
+function renderWithStore(ui, { preloadedState } = {}) {
+  const store = configureStore({ reducer: { todo: todoReducer }, preloadedState });
+  return { store, ...render(<Provider store={store}>{ui}</Provider>) };
+}
+
+test('shows existing todos', () => {
+  renderWithStore(<App />, { preloadedState: { todo: ['Buy milk'] } });
+  expect(screen.getByText('Buy milk')).toBeInTheDocument();
+});
+```
+
+Reducers are pure functions, so you can also test them **without React**:
+
+```js
+import todoReducer, { addTodo } from '../slices/todoSlice';
+
+test('addTodo appends an item', () => {
+  expect(todoReducer([], addTodo('Learn Redux'))).toEqual(['Learn Redux']);
+});
+```
+
+## A reusable custom render
+
+Put all the providers in one helper and import it instead of `@testing-library/react`:
+
+```jsx title="test-utils.jsx"
+import { render } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from './ThemeContext';
+
+export function renderWithProviders(ui, { route = '/' } = {}) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+export * from '@testing-library/react';
+```
+
+```jsx
+import { renderWithProviders, screen } from '../test-utils';
+
+renderWithProviders(<Dashboard />, { route: '/dashboard' });
+```
+
+## Testing custom hooks
+
+```jsx
+import { renderHook, act } from '@testing-library/react';
+import { useToggle } from '../hooks/useToggle';
+
+test('useToggle flips the value', () => {
+  const { result } = renderHook(() => useToggle());
+  expect(result.current[0]).toBe(false);
+
+  act(() => result.current[1]());
+  expect(result.current[0]).toBe(true);
+});
+```

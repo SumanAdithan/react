@@ -1,0 +1,19 @@
+{
+  "title": "Fundamentals",
+  "icon": "Blocks",
+  "pages": [
+    "jsx",
+    "components",
+    "props",
+    "children-and-composition",
+    "events",
+    "state",
+    "updating-objects-and-arrays",
+    "conditional-rendering",
+    "lists-and-keys",
+    "styling",
+    "forms",
+    "lifting-state-up",
+    "rendering-lifecycle"
+  ]
+}

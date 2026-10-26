@@ -1,0 +1,83 @@
+---
+title: Introduction
+description: What React is, why it exists and the ideas it is built on.
+---
+
+**React** is a JavaScript library for building user interfaces. Facebook (now Meta) released it as open source in 2013.
+
+## Main features
+
+| Feature | Meaning |
+| --- | --- |
+| **Component-based** | The UI is split into small, reusable pieces called components. |
+| **Declarative** | You describe *what* the UI should look like for a given state; React works out *how* to update the DOM. |
+| **Virtual DOM** | React keeps a lightweight copy of the UI in memory and changes only what is different in the real DOM. |
+| **One-way data flow** | Data flows down from parent to child through props, which makes changes predictable. |
+| **The "V" in MVC** | React only handles the *view* layer. Routing, data fetching and global state come from other libraries or frameworks. |
+
+## Traditional websites vs React apps
+
+<Tabs items={['Traditional (multi-page)', 'React (single-page)']}>
+  <Tab value="Traditional (multi-page)">
+    1. The browser sends a request to the server.
+    2. The server returns a full HTML page.
+    3. The browser loads and displays it.
+    4. **Each new page sends another request and reloads the whole page.**
+  </Tab>
+  <Tab value="React (single-page)">
+    1. The browser sends **one** request to the server.
+    2. The server returns HTML plus a JavaScript bundle.
+    3. From then on, JavaScript in the page fetches data (usually JSON) and updates the screen.
+    4. **The page never fully reloads**, so navigation feels instant.
+  </Tab>
+</Tabs>
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant B as Browser
+    participant S as Server
+    Note over B,S: Traditional multi-page site
+    B->>S: GET /about
+    S-->>B: Full HTML page
+    B->>S: GET /contact
+    S-->>B: Another full HTML page - full reload
+    Note over B,S: React single-page app
+    B->>S: GET /
+    S-->>B: index.html + JS bundle - only once
+    B->>B: React renders the contact page in the browser
+    B->>S: GET /api/contact
+    S-->>B: JSON data only
+"
+/>
+
+This model is called a **Single-Page Application (SPA)**. Modern React frameworks such as Next.js combine it with server rendering. See [Server Components](/docs/modern-react/server-components).
+
+## DOM vs Virtual DOM
+
+- **DOM (Document Object Model)**: the browser's tree of HTML elements. Updating it directly and often is expensive, because the browser recalculates layout and repaints.
+- **Virtual DOM**: a JavaScript object tree that describes the UI. When state changes, React:
+  1. builds a new virtual tree,
+  2. compares it with the previous one (the **diffing**, or *reconciliation*, algorithm),
+  3. applies only the minimal set of changes to the real DOM (the **commit**).
+
+<Mermaid
+  chart="
+flowchart LR
+    A[State changes] --> B[Render: build a new virtual tree]
+    B --> C[Diff: compare with the previous tree]
+    C --> D[Commit: patch only the changed DOM nodes]
+    D --> E[Browser paints]
+"
+/>
+
+<AIImage
+  src="/images/ai/virtual-dom-diff.png"
+  alt="Two virtual DOM trees compared, with only the changed node updated in the real DOM"
+  caption="React compares the new virtual tree with the old one and updates only what changed."
+  prompt="Three panels left to right. Left: a tree diagram of rounded node boxes labelled 'Old'. Middle: an identical tree labelled 'New' where exactly one node glows bright cyan to show it changed. A magnifying glass hovers between the two trees comparing them. Right: a stylised browser window whose page layout has only one small block highlighted in cyan, connected to the changed node by a thin glowing arrow. Labels: 'Old', 'New', 'DOM'. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+<Callout title="Render ≠ DOM update">
+  "Rendering" in React means *calling your component function* to get JSX. React touches the real DOM only if the result differs from last time.
+</Callout>

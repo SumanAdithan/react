@@ -1,0 +1,97 @@
+---
+title: Tailwind CSS
+description: Utility-first CSS. Style components with small, composable classes directly in JSX.
+---
+
+**Tailwind CSS** provides small single-purpose classes (`flex`, `p-4`, `text-blue-600`) that you combine directly in `className`. You rarely write custom CSS files, and only the classes you actually use end up in the final CSS.
+
+## Setup with Vite (Tailwind v4)
+
+```bash
+npm i tailwindcss @tailwindcss/vite
+```
+
+```js title="vite.config.js"
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+});
+```
+
+```css title="src/index.css"
+@import 'tailwindcss';
+```
+
+That's all. Tailwind v4 needs no `tailwind.config.js` and scans your files automatically.
+
+## Example
+
+```jsx
+function ProfileCard({ user }) {
+  return (
+    <div className="mx-auto max-w-sm rounded-xl bg-white p-6 shadow-md flex items-center gap-4 dark:bg-slate-800">
+      <img className="size-12 rounded-full" src={user.avatar} alt="" />
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{user.name}</h2>
+        <p className="text-slate-500">{user.role}</p>
+      </div>
+      <button className="ml-auto rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus-visible:outline-2 disabled:opacity-50">
+        Follow
+      </button>
+    </div>
+  );
+}
+```
+
+## Core ideas
+
+| Pattern | Example | Meaning |
+| --- | --- | --- |
+| Spacing | `p-4`, `px-2`, `mt-8`, `gap-4` | 1 unit = 0.25rem (`p-4` = 1rem) |
+| Layout | `flex`, `grid grid-cols-3`, `items-center`, `justify-between` | Flexbox and grid |
+| Sizing | `w-full`, `max-w-md`, `h-screen`, `size-10` | Width and height |
+| Typography | `text-lg`, `font-bold`, `text-slate-600`, `truncate` | Text |
+| States | `hover:`, `focus-visible:`, `disabled:`, `active:` | Pseudo-classes |
+| Responsive | `md:flex`, `lg:grid-cols-4` | Mobile-first breakpoints (`sm` 640px, `md` 768px, `lg` 1024px...) |
+| Dark mode | `dark:bg-slate-900` | Applies when dark mode is active |
+| Arbitrary values | `w-[372px]`, `bg-[#1da1f2]` | One-off values |
+
+```jsx
+{/* 1 column on mobile, 2 on tablets, 4 on desktop */}
+<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">...</div>
+```
+
+## Customising the theme
+
+Add design tokens with CSS variables in `@theme`:
+
+```css title="src/index.css"
+@import 'tailwindcss';
+
+@theme {
+  --color-brand: #6d28d9;
+  --font-display: 'Inter', sans-serif;
+  --breakpoint-3xl: 1920px;
+}
+```
+
+Now `bg-brand`, `font-display` and `3xl:` work.
+
+## Conditional classes
+
+Combine `clsx` and `tailwind-merge` into a `cn()` helper so conditional classes and overrides behave predictably. See [Utilities](/docs/libraries/ui/utilities#clsx--tailwind-merge-the-cn-helper).
+
+```jsx
+<button className={cn('px-4 py-2 rounded', isActive && 'bg-blue-600 text-white', className)} />
+```
+
+<Callout title="Editor support">
+  Install the **Tailwind CSS IntelliSense** VS Code extension for autocomplete, and `prettier-plugin-tailwindcss` to sort classes automatically.
+</Callout>
+
+<Callout type="warn">
+  Don't build class names dynamically (`` `bg-${color}-500` ``). Tailwind only generates classes it can find as **complete strings** in your source code. Map values to full class names instead: `{ red: 'bg-red-500', blue: 'bg-blue-500' }[color]`.
+</Callout>

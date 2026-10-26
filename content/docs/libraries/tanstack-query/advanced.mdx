@@ -1,0 +1,145 @@
+---
+title: Advanced Patterns
+description: Prefetching, Suspense, global error handling, router integration, and testing TanStack Query.
+---
+
+## Prefetching
+
+Start fetching **before** the user needs the data, for example on hover:
+
+```jsx
+function UserLink({ id, name }) {
+  const queryClient = useQueryClient();
+
+  return (
+    <Link
+      to={`/users/${id}`}
+      onMouseEnter={() => queryClient.prefetchQuery(userQueryOptions(id))}
+    >
+      {name}
+    </Link>
+  );
+}
+```
+
+Or in a [React Router loader](/docs/routing/setup#alternative-data-router-createbrowserrouter), so the data starts loading in parallel with the route's code:
+
+```js
+loader: ({ params }) => {
+  queryClient.prefetchQuery(userQueryOptions(Number(params.id))); // don't await: render immediately
+  return null;
+},
+```
+
+## Suspense mode
+
+`useSuspenseQuery` suspends the component until the data is ready, so `data` is **never undefined**. Loading and error states move to [`<Suspense>`](/docs/advanced/code-splitting) and [Error Boundaries](/docs/advanced/error-boundaries).
+
+```jsx
+import { useSuspenseQuery, QueryErrorResetBoundary } from '@tanstack/react-query';
+import { ErrorBoundary } from 'react-error-boundary';
+
+function UserProfile({ id }) {
+  const { data: user } = useSuspenseQuery(userQueryOptions(id)); // always defined
+  return <h1>{user.name}</h1>;
+}
+
+function UserPage({ id }) {
+  return (
+    <QueryErrorResetBoundary>
+      {({ reset }) => (
+        <ErrorBoundary
+          onReset={reset}
+          fallbackRender={({ resetErrorBoundary }) => (
+            <button onClick={resetErrorBoundary}>Try again</button>
+          )}
+        >
+          <Suspense fallback={<Spinner />}>
+            <UserProfile id={id} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+    </QueryErrorResetBoundary>
+  );
+}
+```
+
+## Global error handling
+
+Show a toast for any failed query or mutation, in one place:
+
+```js
+import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      // only toast background refetch failures; the first load shows the error inline
+      if (query.state.data !== undefined) toast.error(`Something went wrong: ${error.message}`);
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => toast.error(error.message),
+  }),
+});
+```
+
+## Sensible defaults
+
+```js
+new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,             // avoid refetching on every mount
+      retry: (count, error) => error.response?.status !== 404 && count < 2,
+      refetchOnWindowFocus: import.meta.env.PROD,
+    },
+  },
+});
+```
+
+## Reading and writing the cache directly
+
+```js
+queryClient.getQueryData(['todos']);                  // read
+queryClient.setQueryData(['todos'], (old) => [...]);  // write
+queryClient.invalidateQueries({ queryKey: ['todos'] });
+queryClient.removeQueries({ queryKey: ['user'] });    // e.g. on logout
+queryClient.clear();                                  // wipe everything
+```
+
+## Testing
+
+Create a **fresh client per test**, with retries off so failures don't wait for back-off:
+
+```jsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
+
+function renderWithClient(ui) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
+
+test('shows the repo name', async () => {
+  renderWithClient(<Repo repo="facebook/react" />); // API mocked with MSW
+  expect(await screen.findByText('facebook/react')).toBeInTheDocument();
+});
+```
+
+See [Mocking APIs with MSW](/docs/testing/mocking-apis) and [Testing with Providers](/docs/testing/testing-with-providers).
+
+## Server rendering
+
+Frameworks such as Next.js can prefetch on the server and pass the cache to the client with `dehydrate` / `HydrationBoundary`. See the [TanStack Query SSR guide](https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr).
+
+## ESLint plugin
+
+`@tanstack/eslint-plugin-query` catches mistakes such as a `queryFn` using a variable that isn't in the `queryKey`:
+
+```js title="eslint.config.js"
+import pluginQuery from '@tanstack/eslint-plugin-query';
+
+export default [...pluginQuery.configs['flat/recommended']];
+```

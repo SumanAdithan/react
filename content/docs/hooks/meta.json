@@ -1,0 +1,17 @@
+{
+  "title": "Hooks",
+  "icon": "Anchor",
+  "pages": [
+    "index",
+    "use-state",
+    "use-effect",
+    "use-ref",
+    "use-memo",
+    "use-callback",
+    "use-context",
+    "use-reducer",
+    "use-layout-effect",
+    "custom-hooks",
+    "other-hooks"
+  ]
+}

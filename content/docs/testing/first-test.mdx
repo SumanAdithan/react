@@ -1,0 +1,112 @@
+---
+title: Writing Your First Test
+description: Anatomy of a test - describe, test or it, render, screen and expect.
+---
+
+## Anatomy of a test
+
+```jsx
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import Button from '../components/Button';
+
+describe('Button', () => {                         // groups related tests (a "suite")
+  it('renders the label', () => {                  // one test case (`test` is an alias)
+    render(<Button label="Click me" />);           // 1. Arrange: render the component
+    const button = screen.getByText('Click me');   // 2. Act: find elements
+    expect(button).toBeInTheDocument();            // 3. Assert: check the result
+  });
+});
+```
+
+- `render()` mounts the component into a jsdom document.
+- `screen` gives you queries over **everything rendered**. See [Queries](/docs/testing/queries).
+- `expect(x).matcher()` passes or fails the test.
+
+## Components under test
+
+```jsx title="components/Button.jsx"
+export default function Button({ label, onClick }) {
+  return <button onClick={onClick}>{label}</button>;
+}
+```
+
+```jsx title="components/UsernameDisplay.jsx"
+export function UsernameDisplay({ username }) {
+  return (
+    <div>
+      <span>{username}</span>
+    </div>
+  );
+}
+```
+
+## Testing a login component
+
+```jsx title="Login.jsx"
+import { useState } from 'react';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+
+  function signInHandler() {
+    setMessage('loading');
+    setTimeout(() => {
+      setMessage(
+        email === 'john@gmail.com' && password === 'test@123'
+          ? 'Successfully logged in!'
+          : 'Invalid credentials!'
+      );
+    }, 1000);
+  }
+
+  return (
+    <div>
+      <h1>Login</h1>
+      <label htmlFor="email">Email</label>
+      <input id="email" type="text" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <label htmlFor="password">Password</label>
+      <input id="password" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <button onClick={signInHandler}>Sign in</button>
+      {message && <p>{message}</p>}
+    </div>
+  );
+}
+```
+
+```jsx title="__tests__/Login.test.jsx"
+import { render, screen } from '@testing-library/react';
+import Login from '../Login';
+
+test('renders the login heading', () => {
+  render(<Login />);
+  expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
+});
+
+test('inputs are empty initially', () => {
+  render(<Login />);
+  expect(screen.getByLabelText('Email')).toHaveValue('');
+  expect(screen.getByLabelText('Password')).toHaveValue('');
+});
+```
+
+Testing the actual sign-in flow (typing and clicking) is covered in [User Events](/docs/testing/user-events#full-login-flow).
+
+## Common jest-dom matchers
+
+| Matcher | Checks |
+| --- | --- |
+| `toBeInTheDocument()` | The element exists |
+| `toBeVisible()` | It's visible to the user |
+| `toHaveTextContent('x')` | It contains the text |
+| `toHaveValue('x')` | The value of an input or select |
+| `toBeDisabled()` / `toBeEnabled()` | Disabled state |
+| `toBeChecked()` | Checkbox or radio state |
+| `toHaveClass('active')` | CSS class |
+| `toHaveAttribute('href', '/x')` | Attribute value |
+
+<Callout title="Testing philosophy">
+  *"The more your tests resemble the way your software is used, the more confidence they can give you."* Test what the **user sees and does**, not internal state or implementation details.
+</Callout>

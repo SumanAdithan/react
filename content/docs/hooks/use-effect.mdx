@@ -1,0 +1,171 @@
+---
+title: useEffect
+description: Run side effects after render, react to changes and clean up afterwards.
+---
+
+```jsx
+useEffect(() => {
+  // side effect
+  return () => {
+    // optional cleanup
+  };
+}, [dependencies]);
+```
+
+`useEffect` lets you **synchronise a component with something outside React**: fetch data, start a timer, subscribe to events, update `document.title`, connect to a WebSocket and so on. The effect runs **after** React has updated the DOM and the browser has painted.
+
+## The dependency array
+
+| Form | When the effect runs |
+| --- | --- |
+| `useEffect(fn)` | After **every** render |
+| `useEffect(fn, [])` | Once, after the **first** render (mount) |
+| `useEffect(fn, [a, b])` | After the first render, and again whenever `a` or `b` changes |
+
+<Callout title="Correction to my notes">
+  My notes said that without the second argument the effect "loops infinitely". Strictly, it runs after every render. It only becomes an infinite loop if the effect **sets state** (which causes a render, which runs the effect again...).
+</Callout>
+
+## Running when a value changes
+
+```jsx
+import { useState, useEffect } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(1);
+
+  useEffect(() => {
+    document.title = `Count: ${count}`;
+  }, [count]); // re-run only when count changes
+
+  return <button onClick={() => setCount((c) => c + 1)}>Count: {count}</button>;
+}
+```
+
+## Running once on mount
+
+```jsx
+useEffect(() => {
+  console.log('component mounted');
+  const id = setTimeout(() => setCount((prev) => prev + 1), 1000);
+  return () => clearTimeout(id);
+}, []);
+```
+
+## Cleanup
+
+Return a function from the effect to undo it. React calls the cleanup:
+
+- **before re-running** the effect (when dependencies change), and
+- when the component **unmounts**.
+
+Without cleanup you get **memory leaks**: timers that keep firing, listeners that pile up, and responses that set state on components that are gone.
+
+<Tabs items={['Timer', 'Event listener', 'Fetch']}>
+  <Tab value="Timer">
+    ```jsx
+    useEffect(() => {
+      const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+      return () => clearInterval(id); // stop the timer
+    }, []);
+    ```
+  </Tab>
+  <Tab value="Event listener">
+    ```jsx
+    useEffect(() => {
+      const onResize = () => setWidth(window.innerWidth);
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, []);
+    ```
+  </Tab>
+  <Tab value="Fetch">
+    ```jsx
+    useEffect(() => {
+      const controller = new AbortController();
+
+      fetch(`/api/users/${id}`, { signal: controller.signal })
+        .then((res) => res.json())
+        .then(setUser)
+        .catch((err) => {
+          if (err.name !== 'AbortError') setError(err);
+        });
+
+      return () => controller.abort(); // cancel if id changes or on unmount
+    }, [id]);
+    ```
+    See [AbortController](/docs/data-fetching/abort-controller).
+  </Tab>
+</Tabs>
+
+<Callout type="warn" title="Correction to my notes">
+  My original "memory cleanup" example called `setNum1(null)` inside the cleanup. Setting state in a cleanup isn't what cleanup is for, and on unmount there is no component left to update. Cleanup should **release resources**: clear timers, remove listeners, abort requests, close connections.
+</Callout>
+
+### Order of execution
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant R as React
+    participant C as Component
+    participant E as Effect
+    R->>C: Mount - render
+    R->>E: Run effect
+    R->>C: A dependency changed - render
+    R->>E: Cleanup with the old values
+    R->>E: Run effect with the new values
+    R->>C: Unmount
+    R->>E: Cleanup
+"
+/>
+
+In development, [StrictMode](/docs/getting-started/project-structure#the-entry-point) runs *mount → cleanup → mount* once on purpose, to check that your cleanup works.
+
+## Dependencies must be complete
+
+Every reactive value (props, state, and functions declared in the component) used inside the effect must be listed. Leaving one out gives you **stale values**.
+
+```jsx
+// ❌ uses `query` but doesn't list it, so it always searches the first query
+useEffect(() => {
+  search(query);
+}, []);
+
+// ✅
+useEffect(() => {
+  search(query);
+}, [query]);
+```
+
+## You might not need an effect
+
+Effects are for syncing with **external** systems. Common cases where they're unnecessary:
+
+| ❌ Effect | ✅ Instead |
+| --- | --- |
+| `useEffect(() => setFullName(first + ' ' + last), [first, last])` | Compute during render: `const fullName = first + ' ' + last` |
+| Effect that runs logic after a button click | Put the logic in the **event handler** |
+| Effect that resets state when a prop changes | Pass a different `key` to the component |
+| Hand-written data fetching in many components | A library such as [TanStack Query](/docs/libraries/tanstack-query) or a framework loader |
+
+## Async functions inside effects
+
+The effect callback itself can't be `async` (it must return nothing or a cleanup function). Define an async function inside it:
+
+```jsx
+useEffect(() => {
+  let ignore = false;
+
+  async function load() {
+    const res = await fetch(`/api/posts?page=${page}`);
+    const data = await res.json();
+    if (!ignore) setPosts(data); // skip stale responses (race condition)
+  }
+
+  load();
+  return () => {
+    ignore = true;
+  };
+}, [page]);
+```

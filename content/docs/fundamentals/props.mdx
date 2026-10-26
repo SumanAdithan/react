@@ -1,0 +1,122 @@
+---
+title: Props
+description: Pass data from parent to child components.
+---
+
+**Props** (short for *properties*) are the inputs of a component. A parent passes them like HTML attributes, and the child receives them as **one object**.
+
+- In JavaScript you pass *arguments* to a function; in JSX you pass *attributes* to a component.
+- Strings can be passed directly (`brand="ford"`). Any other value needs `{}`: `year={2020}`, `info={obj}`, `onClick={fn}`.
+- **Props are read-only.** A component must never change its own props. To change data, use [state](/docs/fundamentals/state).
+
+## Props in function components
+
+<Tabs items={['Garage.jsx (parent)', 'Car.jsx (child)']}>
+  <Tab value="Garage.jsx (parent)">
+    ```jsx title="Garage.jsx"
+    import Car from './Car';
+
+    function Garage() {
+      const carInfo = { brand: 'Ferrari', color: 'red' };
+
+      return (
+        <>
+          <h1>Who lives in my garage?</h1>
+
+          {/* individual props */}
+          <Car brand="Ford" color="black" />
+
+          {/* pass an object as one prop */}
+          <Car carInfo={carInfo} />
+
+          {/* or spread the object into separate props */}
+          <Car {...carInfo} />
+        </>
+      );
+    }
+
+    export default Garage;
+    ```
+  </Tab>
+  <Tab value="Car.jsx (child)">
+    ```jsx title="Car.jsx"
+    // props is an object: { brand: 'Ford', color: 'black' }
+    function Car(props) {
+      return <h2>I am a {props.color} {props.brand}</h2>;
+    }
+
+    // ✅ more common: destructure in the parameter list
+    function Car({ brand, color }) {
+      return <h2>I am a {color} {brand}</h2>;
+    }
+
+    export default Car;
+    ```
+  </Tab>
+</Tabs>
+
+## Default values
+
+Use default parameters when destructuring:
+
+```jsx
+function Button({ label = 'Click me', variant = 'primary' }) {
+  return <button className={variant}>{label}</button>;
+}
+```
+
+## Props in class components (legacy)
+
+Class components read props from `this.props`:
+
+```jsx title="Apple.jsx"
+import React from 'react';
+
+class Apple extends React.Component {
+  render() {
+    const { appleInfo } = this.props;
+    return (
+      <h2>
+        I'm a {appleInfo.color} {appleInfo.type} apple!
+      </h2>
+    );
+  }
+}
+
+export default Apple;
+
+// usage: <Apple appleInfo={{ type: 'Fuji', color: 'red' }} />
+```
+
+If you write a constructor, call `super(props)` before using `this`.
+
+## Passing functions as props
+
+Children talk back to parents by calling a function the parent passed down:
+
+```jsx
+function Parent() {
+  const handleSelect = (item) => console.log('selected', item);
+  return <Child onSelect={handleSelect} />;
+}
+
+function Child({ onSelect }) {
+  return <button onClick={() => onSelect('apple')}>Pick apple</button>;
+}
+```
+
+<Mermaid
+  chart="
+flowchart TD
+    P[Parent: owns the data and handleSelect]
+    C[Child]
+    P -- props: data flows down --> C
+    C -. calls onSelect: events flow up .-> P
+"
+/>
+
+By convention, callback props are named `onSomething` and the handlers that implement them `handleSomething`.
+
+<Callout title="Type checking props">
+  To catch wrong prop types, use TypeScript (recommended) or PropTypes (legacy). See [Type Checking](/docs/advanced/type-checking).
+</Callout>

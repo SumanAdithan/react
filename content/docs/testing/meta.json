@@ -1,0 +1,5 @@
+{
+  "title": "Testing",
+  "icon": "FlaskConical",
+  "pages": ["setup", "first-test", "queries", "user-events", "snapshot-testing", "mocking-apis", "testing-with-providers", "e2e-playwright"]
+}

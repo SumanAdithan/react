@@ -1,0 +1,169 @@
+---
+title: TanStack Table Basics
+description: A headless table library. You own the markup; it handles the table logic.
+---
+
+**TanStack Table** is a **headless** table library. It provides the logic (rows, columns, sorting, filtering, pagination, selection, grouping) but **no markup or styles**. You render plain `<table>` elements, Tailwind, shadcn/ui or anything else, so it fits any design.
+
+<AIImage
+  src="/images/ai/headless-table.png"
+  alt="One table logic engine powering several differently styled tables"
+  caption="Headless: TanStack Table supplies the logic, you supply the markup and styles."
+  prompt="In the centre, a glowing engine block made of interlocking gears labelled 'logic', with small icons around it for sort arrows, a filter funnel, page numbers and a checkbox. Three cables run from it to three very different table designs on the right: a minimal monochrome table, a colourful card-style table, and a dense spreadsheet-like grid. Labels: 'logic', 'your markup'. Style: modern flat vector illustration, clean and minimal, soft isometric depth, dark navy background (#0f172a), React cyan (#61dafb) as the main accent with violet (#8b5cf6) and emerald (#10b981) highlights, rounded shapes, subtle glow, generous whitespace, no logos, no watermark, 16:9 aspect ratio, 1600x900. Any text must be short, crisp, legible sans-serif labels spelled exactly as written."
+/>
+
+```bash
+npm i @tanstack/react-table
+```
+
+<Callout title="Version: TanStack Table v9">
+  These docs use **v9** (stable since August 2026). It renamed `useReactTable` to `useTable`, and features and row models are now registered with `tableFeatures()`. Most tutorials online still show **v8**. See the [v8 → v9 table](#coming-from-v8) at the end of this page.
+</Callout>
+
+## Core concepts
+
+| Concept | Meaning |
+| --- | --- |
+| **Data** | Your array of row objects. It must have a **stable reference** (`useState`, `useMemo` or query data) |
+| **Column definitions** | How to read each column's value and how to render its header and cell |
+| **Features** | Opt-in capabilities (sorting, filtering...) registered with `tableFeatures()`, so unused ones are tree-shaken |
+| **Row models** | The pipeline that turns data into rows: core → filtered → sorted → paginated |
+| **Table instance** | Returned by `useTable`. Exposes `getHeaderGroups()`, `getRowModel()` and so on |
+| **State** | Sorting, filters, pagination... It can be internal, or controlled by you |
+
+<Mermaid
+  chart="
+flowchart LR
+    D[data] --> Core[Core row model]
+    Core --> F[Filtered row model]
+    F --> S[Sorted row model]
+    S --> P[Paginated row model]
+    P --> R[table.getRowModel: the rows you render]
+"
+/>
+
+## A basic table
+
+```tsx title="UsersTable.tsx"
+import { useMemo } from 'react';
+import { createColumnHelper, flexRender, tableFeatures, useTable } from '@tanstack/react-table';
+
+type User = {
+  id: number;
+  name: string;
+  email: string;
+  age: number;
+  status: 'active' | 'inactive';
+};
+
+// 1. register features (none needed for a plain table; the core row model is always included)
+const features = tableFeatures({});
+
+// 2. define columns
+const columnHelper = createColumnHelper<typeof features, User>();
+
+const columns = columnHelper.columns([
+  columnHelper.accessor('name', {
+    header: 'Name',
+    cell: (info) => <strong>{info.getValue()}</strong>,
+  }),
+  columnHelper.accessor('email', { header: 'Email' }),
+  columnHelper.accessor('age', { header: 'Age' }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: (info) => (info.getValue() === 'active' ? '🟢 Active' : '⚪ Inactive'),
+  }),
+  // a display column has no data; it's for buttons and other UI
+  columnHelper.display({
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => <button onClick={() => alert(row.original.name)}>View</button>,
+  }),
+]);
+
+export function UsersTable({ users }: { users: User[] }) {
+  // 3. create the table instance
+  const table = useTable({
+    features,
+    columns,
+    data: users,
+    getRowId: (row) => String(row.id), // stable row ids (recommended)
+  });
+
+  // 4. render it
+  return (
+    <table>
+      <thead>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <tr key={headerGroup.id}>
+            {headerGroup.headers.map((header) => (
+              <th key={header.id} colSpan={header.colSpan}>
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(header.column.columnDef.header, header.getContext())}
+              </th>
+            ))}
+          </tr>
+        ))}
+      </thead>
+      <tbody>
+        {table.getRowModel().rows.map((row) => (
+          <tr key={row.id}>
+            {row.getVisibleCells().map((cell) => (
+              <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+```
+
+- `flexRender` renders a header or cell definition, whether it's a string or a function. v9 also offers a `<table.FlexRender cell={cell} />` component.
+- `row.original` is your original data object.
+- `info.getValue()` returns the accessor's value for that cell.
+
+## Column definition options
+
+```tsx
+// accessor by key
+columnHelper.accessor('email', { header: 'Email' });
+
+// accessor function (computed value). Needs an id
+columnHelper.accessor((row) => `${row.firstName} ${row.lastName}`, {
+  id: 'fullName',
+  header: 'Full name',
+});
+
+// header and footer as components
+columnHelper.accessor('salary', {
+  header: () => <span>💰 Salary</span>,
+  cell: (info) => info.getValue().toLocaleString('en-IN', { style: 'currency', currency: 'INR' }),
+  footer: ({ table }) => 'Total',
+});
+
+// column groups (multi-level headers)
+columnHelper.group({
+  header: 'Personal info',
+  columns: [columnHelper.accessor('name', {}), columnHelper.accessor('age', {})],
+});
+```
+
+<Callout type="warn" title="Stable references">
+  Define `columns` **outside the component** (or in `useMemo`), and make sure `data` doesn't get a new array reference on every render. An inline `data={[...]}` makes the table recompute every render and can cause infinite loops.
+</Callout>
+
+## Coming from v8
+
+| v8 | v9 |
+| --- | --- |
+| `useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() })` | `useTable({ features, data, columns })` (core row model is automatic) |
+| `getSortedRowModel: getSortedRowModel()` | `tableFeatures({ rowSortingFeature, sortedRowModel: createSortedRowModel() })` |
+| `getFilteredRowModel()` / `getPaginationRowModel()` | `filteredRowModel: createFilteredRowModel()` / `paginatedRowModel: createPaginatedRowModel()` |
+| `createColumnHelper<TData>()` | `createColumnHelper<typeof features, TData>()` |
+| `table.getState()` | `table.state` |
+| `sortingFn` / `sortingFns` | `sortFn` / `sortFns` |
+| Column pinning `left` / `right` | `start` / `end` |
+
+Full guide: [Migrating to v9](https://tanstack.com/table/latest/docs/framework/react/guide/migrating).

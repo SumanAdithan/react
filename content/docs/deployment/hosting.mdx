@@ -1,0 +1,118 @@
+---
+title: Building & Hosting
+description: Create a production build and deploy it to a static hosting platform.
+---
+
+## 1. Build
+
+```bash
+npm run build      # Vite → dist/   |   CRA → build/
+npm run preview    # test the production build locally (Vite)
+```
+
+The output folder contains only static files (`index.html`, hashed JS/CSS, assets), so any static host can serve it.
+
+## 2. Choose a host
+
+| Platform | Free tier | Notes |
+| --- | --- | --- |
+| **Vercel** | ✅ | Zero-config for Vite and Next.js; preview deploy per pull request |
+| **Netlify** | ✅ | Drag-and-drop `dist/` or connect Git; forms and functions |
+| **Cloudflare Pages** | ✅ | Global edge network, generous limits |
+| **GitHub Pages** | ✅ | Free for public repos; needs `base` config for sub-paths |
+| **Firebase Hosting** | ✅ | Good fit if you already use Firebase auth or DB |
+| **Render** | ✅ | Static sites plus backend services |
+| AWS S3 + CloudFront, Azure Static Web Apps | Pay-as-you-go | More control, more setup |
+
+## Deploying with Git (Vercel or Netlify)
+
+<Steps>
+<Step>
+Push your project to GitHub, GitLab or Bitbucket.
+</Step>
+<Step>
+Import the repository on the platform. It detects Vite automatically: build command `npm run build`, output directory `dist`.
+</Step>
+<Step>
+Add environment variables (`VITE_API_URL` and so on) in the platform's dashboard.
+</Step>
+<Step>
+Every push to `main` now deploys automatically, and pull requests get preview URLs.
+</Step>
+</Steps>
+
+<Mermaid
+  chart="
+flowchart LR
+    A[git push to main] --> B[Host detects the change]
+    B --> C[npm install and npm run build]
+    C --> D[Upload dist to the CDN]
+    D --> E[Live URL]
+    PR[Pull request] --> P[Preview deployment URL]
+"
+/>
+
+## SPA routing fallback
+
+With client-side routing, refreshing `/about` asks the server for a file called `/about`, which doesn't exist, so you get a **404**. Tell the host to serve `index.html` for all routes:
+
+<Mermaid
+  chart="
+sequenceDiagram
+    participant B as Browser
+    participant H as Static host
+    B->>H: GET /about after a page refresh
+    alt no fallback configured
+        H-->>B: 404 - there is no about.html file
+    else rewrite to index.html
+        H-->>B: index.html
+        B->>B: React Router renders the About page
+    end
+"
+/>
+
+<Tabs items={['Netlify', 'Vercel', 'Firebase']}>
+  <Tab value="Netlify">
+    ```text title="public/_redirects"
+    /*  /index.html  200
+    ```
+  </Tab>
+  <Tab value="Vercel">
+    ```json title="vercel.json"
+    {
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+    }
+    ```
+  </Tab>
+  <Tab value="Firebase">
+    ```json title="firebase.json"
+    {
+      "hosting": {
+        "public": "dist",
+        "rewrites": [{ "source": "**", "destination": "/index.html" }]
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## GitHub Pages
+
+The site is served from `https://<user>.github.io/<repo>/`, so set the base path:
+
+```js title="vite.config.js"
+export default defineConfig({
+  base: '/my-repo/',
+  plugins: [react()],
+});
+```
+
+Then deploy `dist/` with the `gh-pages` package or a GitHub Actions workflow. GitHub Pages has no rewrite rules, so use `HashRouter` or copy `index.html` to `404.html`.
+
+## Pre-deploy checklist
+
+- [ ] `npm run build` succeeds without warnings
+- [ ] Environment variables are set on the host, with no secrets in `VITE_*`
+- [ ] SPA fallback is configured
+- [ ] API URLs point to production, and CORS allows your domain
+- [ ] Tested with `npm run preview`

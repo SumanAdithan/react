@@ -1,0 +1,80 @@
+---
+title: Using React in Plain HTML
+description: Load React from a CDN to try it out without any build tools.
+---
+
+You can use React in a plain HTML file. It is a quick way to experiment, though it is **not suitable for production**, because Babel compiles JSX in the browser on every page load.
+
+## HTML file
+
+```html title="index.html"
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>react js</title>
+    <!-- React + ReactDOM (UMD builds, React 18) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel compiles JSX inside the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- type="text/babel" tells Babel to compile this file -->
+    <script type="text/babel" src="./app.js"></script>
+  </body>
+</html>
+```
+
+## JS file
+
+<Tabs items={['Functional component', 'Class component']}>
+  <Tab value="Functional component">
+    ```jsx title="app.js"
+    const App = () => {
+      return <h1>Hello World</h1>;
+    };
+
+    const { createRoot } = ReactDOM;
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+    ```
+  </Tab>
+  <Tab value="Class component">
+    ```jsx title="app.js"
+    // a class component must extend React.Component
+    class App extends React.Component {
+      // and must have a render() method that returns JSX
+      render() {
+        return <h1>Hello World</h1>;
+      }
+    }
+
+    // ReactDOM exposes createRoot; destructure it
+    const { createRoot } = ReactDOM;
+
+    // pass the root DOM element to createRoot
+    const root = createRoot(document.getElementById('root'));
+
+    // render the component into it
+    root.render(<App />);
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="warn" title="React 19 has no UMD builds">
+  React 19 removed the `umd/` files, so the script tags above only work for React 18. For React 19 without a build step, use an ES module CDN:
+
+```html
+<script type="importmap">
+  { "imports": {
+      "react": "https://esm.sh/react@19",
+      "react-dom/client": "https://esm.sh/react-dom@19/client"
+  } }
+</script>
+```
+
+To use JSX this way you still need a compiler, so for anything beyond a quick test use [Vite](/docs/getting-started/installation).
+</Callout>

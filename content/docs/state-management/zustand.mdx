@@ -1,0 +1,69 @@
+---
+title: Zustand (lightweight alternative)
+description: A minimal global store with hooks and no Provider.
+---
+
+[Zustand](https://zustand.docs.pmnd.rs) is a small (about 1 KB) state management library. It's popular because it needs almost no boilerplate: **no Provider, no actions, no reducers**.
+
+```bash
+npm i zustand
+```
+
+## Create a store
+
+```js title="store/useCartStore.js"
+import { create } from 'zustand';
+
+export const useCartStore = create((set, get) => ({
+  items: [],
+  addItem: (item) => set((state) => ({ items: [...state.items, item] })),
+  removeItem: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
+  clear: () => set({ items: [] }),
+  total: () => get().items.reduce((sum, i) => sum + i.price, 0),
+}));
+```
+
+## Use it in any component
+
+```jsx
+import { useCartStore } from './store/useCartStore';
+
+function CartButton() {
+  // subscribe to only what you need, so this re-renders only when items.length changes
+  const count = useCartStore((state) => state.items.length);
+  return <button>🛒 {count}</button>;
+}
+
+function Product({ product }) {
+  const addItem = useCartStore((state) => state.addItem);
+  return <button onClick={() => addItem(product)}>Add to cart</button>;
+}
+```
+
+## Persisting to localStorage
+
+```js
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+export const useSettings = create(
+  persist(
+    (set) => ({
+      theme: 'light',
+      toggleTheme: () => set((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' })),
+    }),
+    { name: 'settings' } // localStorage key
+  )
+);
+```
+
+## Redux Toolkit vs Zustand
+
+| | Redux Toolkit | Zustand |
+| --- | --- | --- |
+| Setup | Store + slices + Provider | One `create()` call |
+| Async | Thunks / RTK Query | Plain `async` functions in the store |
+| DevTools | Built in | Via `devtools` middleware |
+| Structure | Opinionated, good for large teams | Flexible and minimal |
+
+Other options: **Jotai** (atomic state) and **MobX** (observable state).
